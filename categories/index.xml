@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Categories on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/categories/</link>
+    <description>Recent content in Categories on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Sat, 18 Feb 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/categories/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>RT-Thread</title>
+      <link>https://freeflyingsheep.github.io/categories/rt-thread/</link>
+      <pubDate>Sat, 18 Feb 2023 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/rt-thread/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Tips</title>
+      <link>https://freeflyingsheep.github.io/categories/tips/</link>
+      <pubDate>Mon, 30 Jan 2023 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/tips/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>LoongArch</title>
+      <link>https://freeflyingsheep.github.io/categories/loongarch/</link>
+      <pubDate>Tue, 26 Jul 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/loongarch/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Valgrind</title>
+      <link>https://freeflyingsheep.github.io/categories/valgrind/</link>
+      <pubDate>Mon, 27 Dec 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/valgrind/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Virtualization</title>
+      <link>https://freeflyingsheep.github.io/categories/virtualization/</link>
+      <pubDate>Wed, 09 Jun 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/virtualization/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Kernel</title>
+      <link>https://freeflyingsheep.github.io/categories/kernel/</link>
+      <pubDate>Mon, 17 May 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/kernel/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>OpenStack</title>
+      <link>https://freeflyingsheep.github.io/categories/openstack/</link>
+      <pubDate>Mon, 30 Nov 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/openstack/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Linux</title>
+      <link>https://freeflyingsheep.github.io/categories/linux/</link>
+      <pubDate>Tue, 20 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/linux/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Git</title>
+      <link>https://freeflyingsheep.github.io/categories/git/</link>
+      <pubDate>Tue, 11 Aug 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/git/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>MIPS</title>
+      <link>https://freeflyingsheep.github.io/categories/mips/</link>
+      <pubDate>Wed, 15 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/categories/mips/</guid>
+      <description></description>
+    </item>
+    
+  </channel>
+</rss>

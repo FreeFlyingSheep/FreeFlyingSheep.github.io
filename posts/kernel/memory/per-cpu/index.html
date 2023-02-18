@@ -1,0 +1,343 @@
+<!doctype html><html lang=zh dir=auto><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>per-CPU 高速缓存 | FreeFlyingSheep 的小站</title><meta name=keywords content="Linux 内核,内存管理,per-CPU 页框高速缓存"><meta name=description content="Linux 内核学习笔记系列，内存管理部分，简单介绍 per-CPU 高速缓存。"><meta name=author content="FreeFlyingSheep"><link rel=canonical href=https://freeflyingsheep.github.io/posts/kernel/memory/per-cpu/><link crossorigin=anonymous href=/assets/css/stylesheet.min.c88963fe2d79462000fd0fb1b3737783c32855d340583e4523343f8735c787f0.css integrity="sha256-yIlj/i15RiAA/Q+xs3N3g8MoVdNAWD5FIzQ/hzXHh/A=" rel="preload stylesheet" as=style><script defer crossorigin=anonymous src=/assets/js/highlight.min.b95bacdc39e37a332a9f883b1e78be4abc1fdca2bc1f2641f55e3cd3dabd4d61.js integrity="sha256-uVus3DnjejMqn4g7Hni+Srwf3KK8HyZB9V4809q9TWE=" onload=hljs.initHighlightingOnLoad()></script>
+<link rel=icon href=https://freeflyingsheep.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://freeflyingsheep.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://freeflyingsheep.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://freeflyingsheep.github.io/apple-touch-icon.png><link rel=mask-icon href=https://freeflyingsheep.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><noscript><style>#theme-toggle,.top-link{display:none}</style></noscript><meta property="og:title" content="per-CPU 高速缓存"><meta property="og:description" content="Linux 内核学习笔记系列，内存管理部分，简单介绍 per-CPU 高速缓存。"><meta property="og:type" content="article"><meta property="og:url" content="https://freeflyingsheep.github.io/posts/kernel/memory/per-cpu/"><meta property="og:image" content="https://freeflyingsheep.github.io/papermod-cover.png"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-07-22T00:00:00+00:00"><meta property="article:modified_time" content="2020-07-22T00:00:00+00:00"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content="https://freeflyingsheep.github.io/papermod-cover.png"><meta name=twitter:title content="per-CPU 高速缓存"><meta name=twitter:description content="Linux 内核学习笔记系列，内存管理部分，简单介绍 per-CPU 高速缓存。"><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://freeflyingsheep.github.io/posts/"},{"@type":"ListItem","position":2,"name":"per-CPU 高速缓存","item":"https://freeflyingsheep.github.io/posts/kernel/memory/per-cpu/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"per-CPU 高速缓存","name":"per-CPU 高速缓存","description":"Linux 内核学习笔记系列，内存管理部分，简单介绍 per-CPU 高速缓存。\n","keywords":["Linux 内核","内存管理","per-CPU 页框高速缓存"],"articleBody":"Linux 内核学习笔记系列，内存管理部分，简单介绍 per-CPU 高速缓存。\n“hot-n-cold pages” 补丁 这部分内容好多专业名词的翻译感觉特别变扭，就直接使用英文了。该补丁是在 2.5.45 版本加入内核的，具体可以参考社区新闻 Hot and cold pages。\n下面简单概括一下这篇新闻的内容。\n通常认为 RAM 是保存数据最快的地方，然而真正快的是处理器（processor）板载的硬件高速缓存（cache），所以多年来，人们都在尝试优化内核的缓存行为来避免数据进到内存。新的页分配系统只是朝这个方向迈出的又一步。\n内核通常知道哪些页面最近被使用过，它们大概率在硬件高速缓存中。新加入的 “hot-n-cold pages” 补丁，尝试利用这些信息，在每个内存区（zone）加入两个 per-CPU 空闲页链表。当处理器释放怀疑为 “hot” 的页面（即该页面在处理器的硬件高速缓存中）时，该页面将被推送到 hot 链表；其他则进入 cold 链表。当然，这个链表存在上界和下界。\n当内核需要一页内存时，新的分配器通常会尝试从处理器的 hot 链表中获取页。即使页面将要被改写，还是使用缓存的页更好。不过有时候使用 cold 的页更有意义的，比如用于 DMA 读取操作时，此时可以使用 GPF_COLD 页面分配标志。\n使用 per-CPU 页链表还可以减少锁的竞争。因为当页必须在 hot/cold 链表和主内存分配器之间移动时，它们以多个页的块进行传输。\n注意，在此处，“处理器”的概念是广义的，即“处理器”包含 CPU，寄存器堆（register file），浮点协处理器等部件。日常生活中的“处理器”通常就是指 CPU。\n书中介绍的“每 CPU 页框高速缓存” 《深入理解 Linux 内核》第八章“每 CPU 页框高速缓存”一节中的好多语句，我初次读的时候都没看明白。现在结合上面的新闻，再去阅读。\n正如我们将在本在稍后看到的，内核经常请求和释放单个页框：为了提升系统性能，每个内存管理区定义了一个“每 CPU” 页框高速缓存。所有“每 CPU” 高速缓存包含一些预先分配的页框。它们被用于满足本地 CPU 发出的单一内存请求。\n现在的处理器，通常是多核的，而且带有多级缓存，一级缓存是每个核私有的，二级缓存开始可能就是共享的了。“为了满足本地 CPU 发出的单一内存请求”，这就是为什么下文说的要为每个 CPU 提供两个高速缓存（两个链表）。\n实际上，这里为每个内存管理区和每个 CPU 提供了两个高速缓存：一个热高速缓存，它存放的页框中所包含的内容很可能就在 CPU 硬件高速缓存中；还有一个冷高速缓存。\n这里讲的就是 hot/cold 链表。其中，hot 链表存放的是大概率在高速缓存中的页。\n如果内核或用户态进程在刚分配到页框后就立即向页框写，那么从热高速缓存中获得页框就对系统性能有利。实际上，每次对页框存储单元的访问将都会导致从另一个页框给硬件高速缓存“窃取”一行——当然，除非硬件高速缓存包含有一行：它映射刚被访问的“热”页框单元。\n刚分配的页框通常在高速缓存中，即会被存放于 hot 链表。后面那句话有点迷，我的理解是除非高速缓存中已经有了那行数据，否则高速缓存会从内存加载那行数据，就是解释了一下高速缓存的工作方式。\n反过来，如果页框将要被 DMA 操作填充，那么从冷高速缓存中获得页框是方便的。在这种情况下，不会涉及到 CPU，并且硬件高速缓存的行不会被修改。从冷高速缓存获得页框为其他类型的内存分配保存了热页框储备。\n这里解释了在需要 DMA 操作的情况下，用 cold 链表的好处。\nper-CPU 页框高速缓存的实现 pageset include/linux/mmzone.h：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 struct per_cpu_pages { int count; /* number of pages in the list */ int low; /* low watermark, refill needed */ int high; /* high watermark, emptying needed */ int batch; /* chunk size for buddy add/remove */ struct list_head list; /* the list of pages */ }; struct per_cpu_pageset { struct per_cpu_pages pcp[2]; /* 0: hot. 1: cold */ #ifdef CONFIG_NUMA unsigned long numa_hit; /* allocated in intended node */ unsigned long numa_miss; /* allocated in non intended node */ unsigned long numa_foreign; /* was intended here, hit elsewhere */ unsigned long interleave_hit; /* interleaver prefered this zone */ unsigned long local_node; /* allocation from local node */ unsigned long other_node; /* allocation from other node */ #endif } ____cacheline_aligned_in_smp; struct zone { ... struct per_cpu_pageset pageset[NR_CPUS]; ... } 通过 per-CPU 页框高速缓存分配页框 mm/page_alloc.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 /* * Obtain a specified number of elements from the buddy allocator, all under * a single hold of the lock, for efficiency. Add them to the supplied list. * Returns the number of new pages which were placed at *list. */ static int rmqueue_bulk(struct zone *zone, unsigned int order, unsigned long count, struct list_head *list) { unsigned long flags; int i; int allocated = 0; struct page *page; spin_lock_irqsave(\u0026zone-\u003elock, flags); for (i = 0; i \u003c count; ++i) { page = __rmqueue(zone, order); // 从伙伴系统分配要补充的页框 if (page == NULL) break; allocated++; list_add_tail(\u0026page-\u003elru, list); // 添加到 hot/cold 链表 } spin_unlock_irqrestore(\u0026zone-\u003elock, flags); return allocated; } /* * Really, prep_compound_page() should be called from __rmqueue_bulk(). But * we cheat by calling it from here, in the order \u003e 0 path. Saves a branch * or two. */ static struct page * buffered_rmqueue(struct zone *zone, int order, int gfp_flags) { unsigned long flags; struct page *page = NULL; int cold = !!(gfp_flags \u0026 __GFP_COLD); if (order == 0) { // 请求一个页框 struct per_cpu_pages *pcp; pcp = \u0026zone-\u003epageset[get_cpu()].pcp[cold]; // 获取 per_cpu_pages local_irq_save(flags); if (pcp-\u003ecount \u003c= pcp-\u003elow) // 需要添加 per-CPU 页框高速缓存 pcp-\u003ecount += rmqueue_bulk(zone, 0, // 从伙伴系统分配要补充的页框 pcp-\u003ebatch, \u0026pcp-\u003elist); if (pcp-\u003ecount) { // per-CPU 页框高速缓存中存在页框，直接分配 page = list_entry(pcp-\u003elist.next, struct page, lru); list_del(\u0026page-\u003elru); // 从 hot/cold 链表中删除 pcp-\u003ecount--; } local_irq_restore(flags); put_cpu(); } if (page == NULL) { // 请求未满足 spin_lock_irqsave(\u0026zone-\u003elock, flags); page = __rmqueue(zone, order); // 从伙伴系统分配请求的页框 spin_unlock_irqrestore(\u0026zone-\u003elock, flags); } if (page != NULL) { // 请求得到满足 BUG_ON(bad_range(zone, page)); mod_page_state_zone(zone, pgalloc, 1 \u003c\u003c order); // 修改 page_state prep_new_page(page, order); // 初始化页描述符 if (gfp_flags \u0026 __GFP_ZERO) // 内存区域填充 0 prep_zero_page(page, order, gfp_flags); if (order \u0026\u0026 (gfp_flags \u0026 __GFP_COMP)) // 复合页 prep_compound_page(page, order); } return page; // 返回页描述符地址 } 部分内容涉及伙伴系统，此处不展开了。 复合页：将物理上连续的两个或多个页看成一个独立的大页，具体可以参考社区新闻 An introduction to compound pages。。 释放页框到 per-CPU 页框高速缓存 mm/page_alloc.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 /* * Frees a list of pages. * Assumes all pages on list are in same zone, and of same order. * count is the number of pages to free, or 0 for all on the list. * * If the zone was previously in an \"all pages pinned\" state then look to * see if this freeing clears that state. * * And clear the zone's pages_scanned counter, to hold off the \"all pages are * pinned\" detection logic. */ static int free_pages_bulk(struct zone *zone, int count, struct list_head *list, unsigned int order) { unsigned long flags; struct page *base, *page = NULL; int ret = 0; base = zone-\u003ezone_mem_map; spin_lock_irqsave(\u0026zone-\u003elock, flags); zone-\u003eall_unreclaimable = 0; zone-\u003epages_scanned = 0; while (!list_empty(list) \u0026\u0026 count--) { page = list_entry(list-\u003eprev, struct page, lru); /* have to delete it as __free_pages_bulk list manipulates */ list_del(\u0026page-\u003elru); // 从 hot/cold 链表中删除 __free_pages_bulk(page, base, zone, order); // 从伙伴系统释放页框 ret++; } spin_unlock_irqrestore(\u0026zone-\u003elock, flags); return ret; } /* * Free a 0-order page */ static void FASTCALL(free_hot_cold_page(struct page *page, int cold)); static void fastcall free_hot_cold_page(struct page *page, int cold) { struct zone *zone = page_zone(page); // 获取页框所在的区 struct per_cpu_pages *pcp; unsigned long flags; arch_free_page(page, 0); // 取消映射，如果有的话 kernel_map_pages(page, 1, 0); // 需要开启 CONFIG_DEBUG_PAGEALLOC 选项 inc_page_state(pgfree); // 修改 page_state if (PageAnon(page)) // 匿名页 page-\u003emapping = NULL; free_pages_check(__FUNCTION__, page); // 检查该页的释放条件 pcp = \u0026zone-\u003epageset[get_cpu()].pcp[cold]; // 获取 per_cpu_pages local_irq_save(flags); if (pcp-\u003ecount \u003e= pcp-\u003ehigh) // 需要移除 per-CPU 页框高速缓存 pcp-\u003ecount -= free_pages_bulk(zone, pcp-\u003ebatch, \u0026pcp-\u003elist, 0); // 从伙伴系统释放页框 list_add(\u0026page-\u003elru, \u0026pcp-\u003elist); // 添加到 hot/cold 链表 pcp-\u003ecount++; local_irq_restore(flags); put_cpu(); } void fastcall free_hot_page(struct page *page) { free_hot_cold_page(page, 0); // 释放至 hot 链表 } void fastcall free_cold_page(struct page *page) { free_hot_cold_page(page, 1); // 释放至 cold 链表 } CONFIG_DEBUG_PAGEALLOC：页面被释放时是整个的从内核地址空间中移除的。该选项显著地降低了速度，但它也能迅速指出特定类型的内存崩溃错误。 匿名页：指应用程序动态分配的堆内存，此处不做具体阐述。 在 2.6 版本的内核中，页框全部被释放至 hot 链表，但这不意味着 cold 链表是空的，当它达到下界时会通过 buffered_rmqueue() 添加。\n","wordCount":"978","inLanguage":"zh","datePublished":"2020-07-22T00:00:00Z","dateModified":"2020-07-22T00:00:00Z","author":{"@type":"Person","name":"FreeFlyingSheep"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://freeflyingsheep.github.io/posts/kernel/memory/per-cpu/"},"publisher":{"@type":"Organization","name":"FreeFlyingSheep 的小站","logo":{"@type":"ImageObject","url":"https://freeflyingsheep.github.io/favicon.ico"}}}</script></head><body id=top><script>localStorage.getItem("pref-theme")==="dark"&&document.body.classList.add("dark")</script><header class=header><nav class=nav><div class=logo><a href=https://freeflyingsheep.github.io/ accesskey=h title="FreeFlyingSheep 的小站 (Alt + H)">FreeFlyingSheep 的小站</a>
+<span class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)"><svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg><svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></span></div><ul id=menu><li><a href=https://freeflyingsheep.github.io/archives title=Archive><span>Archive</span></a></li><li><a href=https://freeflyingsheep.github.io/tags/ title=Tags><span>Tags</span></a></li><li><a href=https://freeflyingsheep.github.io/categories/ title=Categories><span>Categories</span></a></li><li><a href=https://freeflyingsheep.github.io/series/ title=Series><span>Series</span></a></li><li><a href=https://freeflyingsheep.github.io/about/ title=About><span>About</span></a></li><li><a href=https://freeflyingsheep.github.io/search/ title="Search (Alt + /)" accesskey=/><span>Search</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><div class=breadcrumbs><a href=https://freeflyingsheep.github.io/>主页</a>&nbsp;»&nbsp;<a href=https://freeflyingsheep.github.io/posts/>Posts</a></div><h1 class=post-title>per-CPU 高速缓存</h1><div class=post-meta><span title='2020-07-22 00:00:00 +0000 UTC'>七月 22, 2020</span>&nbsp;·&nbsp;5 分钟&nbsp;·&nbsp;FreeFlyingSheep</div></header><div class=toc><details open><summary accesskey=c title="(Alt + C)"><span class=details>目录</span></summary><div class=inner><ul><li><a href=#hot-n-cold-pages-%e8%a1%a5%e4%b8%81 aria-label="“hot-n-cold pages” 补丁">“hot-n-cold pages” 补丁</a></li><li><a href=#%e4%b9%a6%e4%b8%ad%e4%bb%8b%e7%bb%8d%e7%9a%84%e6%af%8f-cpu-%e9%a1%b5%e6%a1%86%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98 aria-label="书中介绍的“每 CPU 页框高速缓存”">书中介绍的“每 CPU 页框高速缓存”</a></li><li><a href=#per-cpu-%e9%a1%b5%e6%a1%86%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label="per-CPU 页框高速缓存的实现">per-CPU 页框高速缓存的实现</a><ul><li><a href=#pageset aria-label=pageset><code>pageset</code></a></li><li><a href=#%e9%80%9a%e8%bf%87-per-cpu-%e9%a1%b5%e6%a1%86%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98%e5%88%86%e9%85%8d%e9%a1%b5%e6%a1%86 aria-label="通过 per-CPU 页框高速缓存分配页框">通过 per-CPU 页框高速缓存分配页框</a></li><li><a href=#%e9%87%8a%e6%94%be%e9%a1%b5%e6%a1%86%e5%88%b0-per-cpu-%e9%a1%b5%e6%a1%86%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98 aria-label="释放页框到 per-CPU 页框高速缓存">释放页框到 per-CPU 页框高速缓存</a></li></ul></li></ul></div></details></div><div class=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，内存管理部分，简单介绍 per-CPU 高速缓存。</p><h2 id=hot-n-cold-pages-补丁>“hot-n-cold pages” 补丁<a hidden class=anchor aria-hidden=true href=#hot-n-cold-pages-补丁>#</a></h2><p>这部分内容好多专业名词的翻译感觉特别变扭，就直接使用英文了。该补丁是在 2.5.45 版本加入内核的，具体可以参考社区新闻 <em><a href=https://lwn.net/Articles/14768/>Hot and cold pages</a></em>。</p><p>下面简单概括一下这篇新闻的内容。</p><p>通常认为 RAM 是保存数据最快的地方，然而真正快的是处理器（processor）板载的硬件高速缓存（cache），所以多年来，人们都在尝试优化内核的缓存行为来避免数据进到内存。新的页分配系统只是朝这个方向迈出的又一步。</p><p>内核通常知道哪些页面最近被使用过，它们大概率在硬件高速缓存中。新加入的 “hot-n-cold pages” 补丁，尝试利用这些信息，在每个内存区（zone）加入两个 per-CPU 空闲页链表。当处理器释放怀疑为 “hot” 的页面（即该页面在处理器的硬件高速缓存中）时，该页面将被推送到 hot 链表；其他则进入 cold 链表。当然，这个链表存在上界和下界。</p><p>当内核需要一页内存时，新的分配器通常会尝试从处理器的 hot 链表中获取页。即使页面将要被改写，还是使用缓存的页更好。不过有时候使用 cold 的页更有意义的，比如用于 DMA 读取操作时，此时可以使用 <code>GPF_COLD</code> 页面分配标志。</p><p>使用 per-CPU 页链表还可以减少锁的竞争。因为当页必须在 hot/cold 链表和主内存分配器之间移动时，它们以多个页的块进行传输。</p><p>注意，在此处，“处理器”的概念是广义的，即“处理器”包含 CPU，寄存器堆（register file），浮点协处理器等部件。日常生活中的“处理器”通常就是指 CPU。</p><h2 id=书中介绍的每-cpu-页框高速缓存>书中介绍的“每 CPU 页框高速缓存”<a hidden class=anchor aria-hidden=true href=#书中介绍的每-cpu-页框高速缓存>#</a></h2><p>《深入理解 Linux 内核》第八章“每 CPU 页框高速缓存”一节中的好多语句，我初次读的时候都没看明白。现在结合上面的新闻，再去阅读。</p><blockquote><p>正如我们将在本在稍后看到的，内核经常请求和释放单个页框：为了提升系统性能，每个内存管理区定义了一个“每 CPU” 页框高速缓存。所有“每 CPU” 高速缓存包含一些预先分配的页框。它们被用于满足本地 CPU 发出的单一内存请求。</p></blockquote><p>现在的处理器，通常是多核的，而且带有多级缓存，一级缓存是每个核私有的，二级缓存开始可能就是共享的了。“为了满足本地 CPU 发出的单一内存请求”，这就是为什么下文说的要为每个 CPU 提供两个高速缓存（两个链表）。</p><blockquote><p>实际上，这里为每个内存管理区和每个 CPU 提供了两个高速缓存：一个热高速缓存，它存放的页框中所包含的内容很可能就在 CPU 硬件高速缓存中；还有一个冷高速缓存。</p></blockquote><p>这里讲的就是 hot/cold 链表。其中，hot 链表存放的是大概率在高速缓存中的页。</p><blockquote><p>如果内核或用户态进程在刚分配到页框后就立即向页框写，那么从热高速缓存中获得页框就对系统性能有利。实际上，每次对页框存储单元的访问将都会导致从另一个页框给硬件高速缓存“窃取”一行——当然，除非硬件高速缓存包含有一行：它映射刚被访问的“热”页框单元。</p></blockquote><p>刚分配的页框通常在高速缓存中，即会被存放于 hot 链表。后面那句话有点迷，我的理解是除非高速缓存中已经有了那行数据，否则高速缓存会从内存加载那行数据，就是解释了一下高速缓存的工作方式。</p><blockquote><p>反过来，如果页框将要被 DMA 操作填充，那么从冷高速缓存中获得页框是方便的。在这种情况下，不会涉及到 CPU，并且硬件高速缓存的行不会被修改。从冷高速缓存获得页框为其他类型的内存分配保存了热页框储备。</p></blockquote><p>这里解释了在需要 DMA 操作的情况下，用 cold 链表的好处。</p><h2 id=per-cpu-页框高速缓存的实现>per-CPU 页框高速缓存的实现<a hidden class=anchor aria-hidden=true href=#per-cpu-页框高速缓存的实现>#</a></h2><h3 id=pageset><code>pageset</code><a hidden class=anchor aria-hidden=true href=#pageset>#</a></h3><p><code>include/linux/mmzone.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> per_cpu_pages {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> count; <span style=color:#75715e>/* number of pages in the list */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> low; <span style=color:#75715e>/* low watermark, refill needed */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> high; <span style=color:#75715e>/* high watermark, emptying needed */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> batch; <span style=color:#75715e>/* chunk size for buddy add/remove */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head list; <span style=color:#75715e>/* the list of pages */</span>
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> per_cpu_pageset {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> per_cpu_pages pcp[<span style=color:#ae81ff>2</span>]; <span style=color:#75715e>/* 0: hot.  1: cold */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_NUMA
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> numa_hit; <span style=color:#75715e>/* allocated in intended node */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> numa_miss; <span style=color:#75715e>/* allocated in non intended node */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> numa_foreign; <span style=color:#75715e>/* was intended here, hit elsewhere */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> interleave_hit; <span style=color:#75715e>/* interleaver prefered this zone */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> local_node; <span style=color:#75715e>/* allocation from local node */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> other_node; <span style=color:#75715e>/* allocation from other node */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>} ____cacheline_aligned_in_smp;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> zone {
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> per_cpu_pageset pageset[NR_CPUS];
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=通过-per-cpu-页框高速缓存分配页框>通过 per-CPU 页框高速缓存分配页框<a hidden class=anchor aria-hidden=true href=#通过-per-cpu-页框高速缓存分配页框>#</a></h3><p><code>mm/page_alloc.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">48
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">49
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">50
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">51
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">52
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">53
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">54
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">55
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">56
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">57
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">58
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">59
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">60
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">61
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">62
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">63
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">64
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">65
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">66
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">67
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">68
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">69
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">70
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">71
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">72
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">73
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Obtain a specified number of elements from the buddy allocator, all under
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * a single hold of the lock, for efficiency.  Add them to the supplied list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Returns the number of new pages which were placed at *list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>rmqueue_bulk</span>(<span style=color:#66d9ef>struct</span> zone <span style=color:#f92672>*</span>zone, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> order,
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> count, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> i;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> allocated <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_lock_irqsave</span>(<span style=color:#f92672>&amp;</span>zone<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> (i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; i <span style=color:#f92672>&lt;</span> count; <span style=color:#f92672>++</span>i) {
+</span></span><span style=display:flex><span>        page <span style=color:#f92672>=</span> <span style=color:#a6e22e>__rmqueue</span>(zone, order); <span style=color:#75715e>// 从伙伴系统分配要补充的页框
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>if</span> (page <span style=color:#f92672>==</span> NULL)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>        allocated<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>list_add_tail</span>(<span style=color:#f92672>&amp;</span>page<span style=color:#f92672>-&gt;</span>lru, list); <span style=color:#75715e>// 添加到 hot/cold 链表
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    }
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_unlock_irqrestore</span>(<span style=color:#f92672>&amp;</span>zone<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> allocated;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Really, prep_compound_page() should be called from __rmqueue_bulk().  But
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * we cheat by calling it from here, in the order &gt; 0 path.  Saves a branch
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * or two.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>buffered_rmqueue</span>(<span style=color:#66d9ef>struct</span> zone <span style=color:#f92672>*</span>zone, <span style=color:#66d9ef>int</span> order, <span style=color:#66d9ef>int</span> gfp_flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> cold <span style=color:#f92672>=</span> <span style=color:#f92672>!!</span>(gfp_flags <span style=color:#f92672>&amp;</span> __GFP_COLD);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (order <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span>) { <span style=color:#75715e>// 请求一个页框
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>struct</span> per_cpu_pages <span style=color:#f92672>*</span>pcp;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        pcp <span style=color:#f92672>=</span> <span style=color:#f92672>&amp;</span>zone<span style=color:#f92672>-&gt;</span>pageset[<span style=color:#a6e22e>get_cpu</span>()].pcp[cold]; <span style=color:#75715e>// 获取 per_cpu_pages
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>local_irq_save</span>(flags);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (pcp<span style=color:#f92672>-&gt;</span>count <span style=color:#f92672>&lt;=</span> pcp<span style=color:#f92672>-&gt;</span>low) <span style=color:#75715e>// 需要添加 per-CPU 页框高速缓存
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            pcp<span style=color:#f92672>-&gt;</span>count <span style=color:#f92672>+=</span> <span style=color:#a6e22e>rmqueue_bulk</span>(zone, <span style=color:#ae81ff>0</span>, <span style=color:#75715e>// 从伙伴系统分配要补充的页框
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                        pcp<span style=color:#f92672>-&gt;</span>batch, <span style=color:#f92672>&amp;</span>pcp<span style=color:#f92672>-&gt;</span>list);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (pcp<span style=color:#f92672>-&gt;</span>count) { <span style=color:#75715e>// per-CPU 页框高速缓存中存在页框，直接分配
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            page <span style=color:#f92672>=</span> <span style=color:#a6e22e>list_entry</span>(pcp<span style=color:#f92672>-&gt;</span>list.next, <span style=color:#66d9ef>struct</span> page, lru);
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>list_del</span>(<span style=color:#f92672>&amp;</span>page<span style=color:#f92672>-&gt;</span>lru); <span style=color:#75715e>// 从 hot/cold 链表中删除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            pcp<span style=color:#f92672>-&gt;</span>count<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>local_irq_restore</span>(flags);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>put_cpu</span>();
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (page <span style=color:#f92672>==</span> NULL) { <span style=color:#75715e>// 请求未满足
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>spin_lock_irqsave</span>(<span style=color:#f92672>&amp;</span>zone<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>        page <span style=color:#f92672>=</span> <span style=color:#a6e22e>__rmqueue</span>(zone, order); <span style=color:#75715e>// 从伙伴系统分配请求的页框
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>spin_unlock_irqrestore</span>(<span style=color:#f92672>&amp;</span>zone<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (page <span style=color:#f92672>!=</span> NULL) { <span style=color:#75715e>// 请求得到满足
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>bad_range</span>(zone, page));
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>mod_page_state_zone</span>(zone, pgalloc, <span style=color:#ae81ff>1</span> <span style=color:#f92672>&lt;&lt;</span> order); <span style=color:#75715e>// 修改 page_state
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>prep_new_page</span>(page, order); <span style=color:#75715e>// 初始化页描述符
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (gfp_flags <span style=color:#f92672>&amp;</span> __GFP_ZERO) <span style=color:#75715e>// 内存区域填充 0
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#a6e22e>prep_zero_page</span>(page, order, gfp_flags);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (order <span style=color:#f92672>&amp;&amp;</span> (gfp_flags <span style=color:#f92672>&amp;</span> __GFP_COMP)) <span style=color:#75715e>// 复合页
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#a6e22e>prep_compound_page</span>(page, order);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> page; <span style=color:#75715e>// 返回页描述符地址
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>}
+</span></span></code></pre></td></tr></table></div></div><ul><li>部分内容涉及<a href=/posts/kernel/memory/buddy_system>伙伴系统</a>，此处不展开了。</li><li>复合页：将物理上连续的两个或多个页看成一个独立的大页，具体可以参考社区新闻 <em><a href=https://lwn.net/Articles/619514/>An introduction to compound pages</a></em>。。</li></ul><h3 id=释放页框到-per-cpu-页框高速缓存>释放页框到 per-CPU 页框高速缓存<a hidden class=anchor aria-hidden=true href=#释放页框到-per-cpu-页框高速缓存>#</a></h3><p><code>mm/page_alloc.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">48
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">49
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">50
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">51
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">52
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">53
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">54
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">55
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">56
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">57
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">58
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">59
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">60
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">61
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">62
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">63
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">64
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">65
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">66
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">67
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">68
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">69
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">70
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Frees a list of pages.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Assumes all pages on list are in same zone, and of same order.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * count is the number of pages to free, or 0 for all on the list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * If the zone was previously in an &#34;all pages pinned&#34; state then look to
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * see if this freeing clears that state.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * And clear the zone&#39;s pages_scanned counter, to hold off the &#34;all pages are
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * pinned&#34; detection logic.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>free_pages_bulk</span>(<span style=color:#66d9ef>struct</span> zone <span style=color:#f92672>*</span>zone, <span style=color:#66d9ef>int</span> count,
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> order)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>base, <span style=color:#f92672>*</span>page <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> ret <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    base <span style=color:#f92672>=</span> zone<span style=color:#f92672>-&gt;</span>zone_mem_map;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_lock_irqsave</span>(<span style=color:#f92672>&amp;</span>zone<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>    zone<span style=color:#f92672>-&gt;</span>all_unreclaimable <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    zone<span style=color:#f92672>-&gt;</span>pages_scanned <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(list) <span style=color:#f92672>&amp;&amp;</span> count<span style=color:#f92672>--</span>) {
+</span></span><span style=display:flex><span>        page <span style=color:#f92672>=</span> <span style=color:#a6e22e>list_entry</span>(list<span style=color:#f92672>-&gt;</span>prev, <span style=color:#66d9ef>struct</span> page, lru);
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/* have to delete it as __free_pages_bulk list manipulates */</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>list_del</span>(<span style=color:#f92672>&amp;</span>page<span style=color:#f92672>-&gt;</span>lru); <span style=color:#75715e>// 从 hot/cold 链表中删除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>__free_pages_bulk</span>(page, base, zone, order); <span style=color:#75715e>// 从伙伴系统释放页框
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        ret<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_unlock_irqrestore</span>(<span style=color:#f92672>&amp;</span>zone<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> ret;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Free a 0-order page
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>FASTCALL</span>(<span style=color:#a6e22e>free_hot_cold_page</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page, <span style=color:#66d9ef>int</span> cold));
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> fastcall <span style=color:#a6e22e>free_hot_cold_page</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page, <span style=color:#66d9ef>int</span> cold)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> zone <span style=color:#f92672>*</span>zone <span style=color:#f92672>=</span> <span style=color:#a6e22e>page_zone</span>(page); <span style=color:#75715e>// 获取页框所在的区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>struct</span> per_cpu_pages <span style=color:#f92672>*</span>pcp;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>arch_free_page</span>(page, <span style=color:#ae81ff>0</span>); <span style=color:#75715e>// 取消映射，如果有的话
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kernel_map_pages</span>(page, <span style=color:#ae81ff>1</span>, <span style=color:#ae81ff>0</span>); <span style=color:#75715e>// 需要开启 CONFIG_DEBUG_PAGEALLOC 选项
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>inc_page_state</span>(pgfree); <span style=color:#75715e>// 修改 page_state
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>PageAnon</span>(page)) <span style=color:#75715e>// 匿名页
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        page<span style=color:#f92672>-&gt;</span>mapping <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>free_pages_check</span>(__FUNCTION__, page); <span style=color:#75715e>// 检查该页的释放条件
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    pcp <span style=color:#f92672>=</span> <span style=color:#f92672>&amp;</span>zone<span style=color:#f92672>-&gt;</span>pageset[<span style=color:#a6e22e>get_cpu</span>()].pcp[cold]; <span style=color:#75715e>// 获取 per_cpu_pages
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>local_irq_save</span>(flags);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (pcp<span style=color:#f92672>-&gt;</span>count <span style=color:#f92672>&gt;=</span> pcp<span style=color:#f92672>-&gt;</span>high) <span style=color:#75715e>// 需要移除 per-CPU 页框高速缓存
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        pcp<span style=color:#f92672>-&gt;</span>count <span style=color:#f92672>-=</span> <span style=color:#a6e22e>free_pages_bulk</span>(zone, pcp<span style=color:#f92672>-&gt;</span>batch, <span style=color:#f92672>&amp;</span>pcp<span style=color:#f92672>-&gt;</span>list, <span style=color:#ae81ff>0</span>); <span style=color:#75715e>// 从伙伴系统释放页框
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>list_add</span>(<span style=color:#f92672>&amp;</span>page<span style=color:#f92672>-&gt;</span>lru, <span style=color:#f92672>&amp;</span>pcp<span style=color:#f92672>-&gt;</span>list); <span style=color:#75715e>// 添加到 hot/cold 链表
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    pcp<span style=color:#f92672>-&gt;</span>count<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_restore</span>(flags);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>put_cpu</span>();
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> fastcall <span style=color:#a6e22e>free_hot_page</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>free_hot_cold_page</span>(page, <span style=color:#ae81ff>0</span>); <span style=color:#75715e>// 释放至 hot 链表
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> fastcall <span style=color:#a6e22e>free_cold_page</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>free_hot_cold_page</span>(page, <span style=color:#ae81ff>1</span>); <span style=color:#75715e>// 释放至 cold 链表
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>}
+</span></span></code></pre></td></tr></table></div></div><ul><li><code>CONFIG_DEBUG_PAGEALLOC</code>：页面被释放时是整个的从内核地址空间中移除的。该选项显著地降低了速度，但它也能迅速指出特定类型的内存崩溃错误。</li><li>匿名页：指应用程序动态分配的堆内存，此处不做具体阐述。</li></ul><p>在 2.6 版本的内核中，页框全部被释放至 hot 链表，但这不意味着 cold 链表是空的，当它达到下界时会通过 <code>buffered_rmqueue()</code> 添加。</p></div><footer class=post-footer><ul class=post-tags><li><a href=https://freeflyingsheep.github.io/tags/linux-%E5%86%85%E6%A0%B8/>Linux 内核</a></li><li><a href=https://freeflyingsheep.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/>内存管理</a></li><li><a href=https://freeflyingsheep.github.io/tags/per-cpu-%E9%A1%B5%E6%A1%86%E9%AB%98%E9%80%9F%E7%BC%93%E5%AD%98/>per-CPU 页框高速缓存</a></li></ul><nav class=paginav><a class=prev href=https://freeflyingsheep.github.io/posts/kernel/memory/slab/><span class=title>« 上一页</span><br><span>slab 分配器</span></a>
+<a class=next href=https://freeflyingsheep.github.io/posts/kernel/memory/buddy-system/><span class=title>下一页 »</span><br><span>伙伴系统</span></a></nav></footer></article></main><footer class=footer><span>&copy; 2023 <a href=https://freeflyingsheep.github.io/>FreeFlyingSheep 的小站</a></span>
+<span>Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+        <a href=https://git.io/hugopapermod rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentcolor"><path d="M12 6H0l6-6z"/></svg></a><script>let menu=document.getElementById("menu");menu&&(menu.scrollLeft=localStorage.getItem("menu-scroll-position"),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}),document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{document.body.className.includes("dark")?(document.body.classList.remove("dark"),localStorage.setItem("pref-theme","light")):(document.body.classList.add("dark"),localStorage.setItem("pref-theme","dark"))})</script><script>document.querySelectorAll("pre > code").forEach(e=>{const n=e.parentNode.parentNode,t=document.createElement("button");t.classList.add("copy-code"),t.innerText="复制";function s(){t.innerText="已复制！",setTimeout(()=>{t.innerText="复制"},2e3)}t.addEventListener("click",t=>{if("clipboard"in navigator){navigator.clipboard.writeText(e.textContent),s();return}const n=document.createRange();n.selectNodeContents(e);const o=window.getSelection();o.removeAllRanges(),o.addRange(n);try{document.execCommand("copy"),s()}catch{}o.removeRange(n)}),n.classList.contains("highlight")?n.appendChild(t):n.parentNode.firstChild==n||(e.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName=="TABLE"?e.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(t):e.parentNode.appendChild(t))})</script></body></html>

@@ -1,0 +1,913 @@
+<!doctype html><html lang=zh dir=auto><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>内核链表 | FreeFlyingSheep 的小站</title><meta name=keywords content="Linux 内核,内核数据结构,链表"><meta name=description content="Linux 内核学习笔记系列，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核链表。"><meta name=author content="FreeFlyingSheep"><link rel=canonical href=https://freeflyingsheep.github.io/posts/kernel/data-structure/list/><link crossorigin=anonymous href=/assets/css/stylesheet.min.c88963fe2d79462000fd0fb1b3737783c32855d340583e4523343f8735c787f0.css integrity="sha256-yIlj/i15RiAA/Q+xs3N3g8MoVdNAWD5FIzQ/hzXHh/A=" rel="preload stylesheet" as=style><script defer crossorigin=anonymous src=/assets/js/highlight.min.b95bacdc39e37a332a9f883b1e78be4abc1fdca2bc1f2641f55e3cd3dabd4d61.js integrity="sha256-uVus3DnjejMqn4g7Hni+Srwf3KK8HyZB9V4809q9TWE=" onload=hljs.initHighlightingOnLoad()></script>
+<link rel=icon href=https://freeflyingsheep.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://freeflyingsheep.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://freeflyingsheep.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://freeflyingsheep.github.io/apple-touch-icon.png><link rel=mask-icon href=https://freeflyingsheep.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><noscript><style>#theme-toggle,.top-link{display:none}</style></noscript><meta property="og:title" content="内核链表"><meta property="og:description" content="Linux 内核学习笔记系列，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核链表。"><meta property="og:type" content="article"><meta property="og:url" content="https://freeflyingsheep.github.io/posts/kernel/data-structure/list/"><meta property="og:image" content="https://freeflyingsheep.github.io/papermod-cover.png"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-09-28T00:00:00+00:00"><meta property="article:modified_time" content="2020-09-28T00:00:00+00:00"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content="https://freeflyingsheep.github.io/papermod-cover.png"><meta name=twitter:title content="内核链表"><meta name=twitter:description content="Linux 内核学习笔记系列，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核链表。"><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://freeflyingsheep.github.io/posts/"},{"@type":"ListItem","position":2,"name":"内核链表","item":"https://freeflyingsheep.github.io/posts/kernel/data-structure/list/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"内核链表","name":"内核链表","description":"Linux 内核学习笔记系列，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核链表。\n","keywords":["Linux 内核","内核数据结构","链表"],"articleBody":"Linux 内核学习笔记系列，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核链表。\n传统的链表与内核链表 在通常情况下，假设我们需要一个描述狐狸信息的双向链表：\n1 2 3 4 5 6 7 struct fox { unsigned long tail_length; /* 尾巴长度，以厘米为单位 */ unsigned long weight; /* 重量，以千克为单位 */ bool is_fantastic; /* 这只狐狸奇妙吗? */ struct fox *next; /* 指向下一只狐狸 */ struct fox *prev; /* 指向前一只狐狸 */ }; 我们会在 fox 结构体添加该结构体的指针，这样 fox 数据结构（即链表的结点）就能被塞入链表。\n然后我们针对 fox 结构体实现相关的链表操作，比如添加狐狸：\n1 2 3 4 void add_fox(struct fox *list, struct fox *f) { ... } 现在我们又需要一个描述兔子信息的双向链表，自然我们需要定义一个新的结构体：\n1 2 3 4 5 6 struct rabbit { unsigned long weight; /* 重量，以千克为单位 */ bool is_fantastic; /* 这只兔子奇妙吗? */ struct rabbit *next; /* 指向下一只兔子 */ struct rabbit *prev; /* 指向前一只兔子 */ }; 然后我们需要针对 rabbit 结构体实现相关的链表操作，比如添加狐狸：\n1 2 3 4 void add_rabbit(struct rabbit *list, struct rabbit *r) { ... } 这时候就有人提出了，我们已经为 fox 结构体定义过了相关的操作，但为了 rabbit 结构体我们需要再次实现几乎完全一样的功能，这是重复劳动。\n我们希望实现一个更加通用的方案，针对链表的操作应该对所有情况都适用（比如上面的 fox 和 rabbit）。显然传统的链表是无法解决这一问题的，因而与传统的方式相反，内核把链表结点塞入其他数据结构，实现了一种独特解法。\n内核链表是一个独特的双向循环链表，下面我们先展示内核链表的用法，再介绍其具体实现。\n内核链表的使用 内核链表实现称为 list，头文件为 include/linux/list.h。它实现了通用的链表操作，仍然以 fox 结构体为例，下面展示内核链表的常见用法。\n定义链表 1 2 3 4 5 6 struct fox { unsigned long tail_length; /* 尾巴长度，以厘米为单位 */ unsigned long weight; /* 重量，以千克为单位 */ bool is_fantastic; /* 这只狐狸奇妙吗? */ struct list_head list; /* 所有 fox 结构体形成链表 */ }; 初始化链表 动态初始化 1 2 3 4 5 6 struct fox *f; f = kmalloc(sizeof(*f), GFP_KERNEL); f-\u003etail_length = 40; f-\u003eweight = 6; f-\u003eis_fantastic = false; INIT_LIST_HEAD(\u0026f-\u003elist); 静态初始化 1 2 3 4 5 struct fox f = { .tail_length = 40, .weight = 6, .list = LIST_HEAD_INIT(f.list), }; 定义链表头 1 static LIST_HEAD(fox_list); 添加结点 在头部添加结点 1 list_add(\u0026f-\u003elist, \u0026fox_list); 在尾部添加结点 1 list_add_tail(\u0026f-\u003elist, \u0026fox_list); 删除结点 1 list_del(\u0026f-\u003elist); 遍历链表 基本方法 1 2 3 4 5 6 struct list_head *p; struct fox *f; list_for_each(p, \u0026fox_list) { f = list_entry(p, struct fox, list); ... } 常用方法 1 2 3 4 struct fox *f; list_for_each_entry(f, \u0026fox_list, list) { ... } 遍历时删除 1 2 3 4 struct fox *f, *next; list_for_each_entry_safe(f, next, \u0026fox_list, list) { ... } 内核链表的实现 所有内核链表的实现均位于 include/linux/list.h。\n链表结构体的实现 1 2 3 struct list_head { struct list_head *next, *prev; }; 初始化链表的实现 1 2 3 4 5 6 7 8 9 10 #define LIST_HEAD_INIT(name) { \u0026(name), \u0026(name) } #define LIST_HEAD(name) \\ struct list_head name = LIST_HEAD_INIT(name) static inline void INIT_LIST_HEAD(struct list_head *list) { list-\u003enext = list; list-\u003eprev = list; } 相关判断的实现 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 /** * list_is_last - tests whether @list is the last entry in list @head * @list: the entry to test * @head: the head of the list */ static inline int list_is_last(const struct list_head *list, const struct list_head *head) { return list-\u003enext == head; } /** * list_empty - tests whether a list is empty * @head: the list to test. */ static inline int list_empty(const struct list_head *head) { return head-\u003enext == head; } /** * list_empty_careful - tests whether a list is empty and not being modified * @head: the list to test * * Description: * tests whether a list is empty _and_ checks that no other CPU might be * in the process of modifying either member (next or prev) * * NOTE: using list_empty_careful() without synchronization * can only be safe if the only activity that can happen * to the list entry is list_del_init(). Eg. it cannot be used * if another CPU could re-list_add() it. */ static inline int list_empty_careful(const struct list_head *head) { struct list_head *next = head-\u003enext; return (next == head) \u0026\u0026 (next == head-\u003eprev); } /** * list_is_singular - tests whether a list has just one entry. * @head: the list to test. */ static inline int list_is_singular(const struct list_head *head) { return !list_empty(head) \u0026\u0026 (head-\u003enext == head-\u003eprev); } 添加结点的实现 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 static inline void __list_add(struct list_head *new, struct list_head *prev, struct list_head *next) { next-\u003eprev = new; new-\u003enext = next; new-\u003eprev = prev; prev-\u003enext = new; } /** * list_add - add a new entry * @new: new entry to be added * @head: list head to add it after * * Insert a new entry after the specified head. * This is good for implementing stacks. */ static inline void list_add(struct list_head *new, struct list_head *head) { __list_add(new, head, head-\u003enext); } /** * list_add_tail - add a new entry * @new: new entry to be added * @head: list head to add it before * * Insert a new entry before the specified head. * This is useful for implementing queues. */ static inline void list_add_tail(struct list_head *new, struct list_head *head) { __list_add(new, head-\u003eprev, head); } 删除结点的实现 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 /* * Delete a list entry by making the prev/next entries * point to each other. * * This is only for internal list manipulation where we know * the prev/next entries already! */ static inline void __list_del(struct list_head * prev, struct list_head * next) { next-\u003eprev = prev; prev-\u003enext = next; } /** * list_del - deletes entry from list. * @entry: the element to delete from the list. * Note: list_empty() on entry does not return true after this, the entry is * in an undefined state. */ static inline void list_del(struct list_head *entry) { __list_del(entry-\u003eprev, entry-\u003enext); entry-\u003enext = LIST_POISON1; entry-\u003eprev = LIST_POISON2; } /** * list_del_init - deletes entry from list and reinitialize it. * @entry: the element to delete from the list. */ static inline void list_del_init(struct list_head *entry) { __list_del(entry-\u003eprev, entry-\u003enext); INIT_LIST_HEAD(entry); } 值得注意的是，list_del() 函数在调用 __list_del() 函数完成删除 entry 后，仍然设置了 entry 的指针。LIST_POISON1 和 LIST_POISON2 被定义于 include/linux/poison.h：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 /********** include/linux/list.h **********/ /* * Architectures might want to move the poison pointer offset * into some well-recognized area such as 0xdead000000000000, * that is also not mappable by user-space exploits: */ #ifdef CONFIG_ILLEGAL_POINTER_VALUE # define POISON_POINTER_DELTA _AC(CONFIG_ILLEGAL_POINTER_VALUE, UL) #else # define POISON_POINTER_DELTA 0 #endif /* * These are non-NULL pointers that will result in page faults * under normal circumstances, used to verify that nobody uses * non-initialized list entries. */ #define LIST_POISON1 ((void *) 0x00100100 + POISON_POINTER_DELTA) #define LIST_POISON2 ((void *) 0x00200200 + POISON_POINTER_DELTA) 根据注释，设置这两个值是为了在循环中遍历到 entry 时触发页面异常，这相当于加了一道保险，毕竟不应该出现遍历已经删除了的结点的情况。\n与 list_del() 形成对比，list_del_init() 在删除 entry 后，重新初始化 entry，这是为了能再次使用包含 entry 的数据结构，比如需要把该数据结构重新添加到链表中（正如刚刚说的，如果使用 list_add() 添加 list_del() 后的 entry，遍历时会发生页面异常）。\n移动结点的实现 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 /** * list_move - delete from one list and add as another's head * @list: the entry to move * @head: the head that will precede our entry */ static inline void list_move(struct list_head *list, struct list_head *head) { __list_del(list-\u003eprev, list-\u003enext); list_add(list, head); } /** * list_move_tail - delete from one list and add as another's tail * @list: the entry to move * @head: the head that will follow our entry */ static inline void list_move_tail(struct list_head *list, struct list_head *head) { __list_del(list-\u003eprev, list-\u003enext); list_add_tail(list, head); } /** * list_rotate_left - rotate the list to the left * @head: the head of the list */ static inline void list_rotate_left(struct list_head *head) { struct list_head *first; if (!list_empty(head)) { first = head-\u003enext; list_move_tail(first, head); } } 其中，list_rotate_left() 函数用于将链表的第一个结点移动至末尾。\n拆分链表的实现 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 static inline void __list_cut_position(struct list_head *list, struct list_head *head, struct list_head *entry) { struct list_head *new_first = entry-\u003enext; list-\u003enext = head-\u003enext; list-\u003enext-\u003eprev = list; list-\u003eprev = entry; entry-\u003enext = list; head-\u003enext = new_first; new_first-\u003eprev = head; } /** * list_cut_position - cut a list into two * @list: a new list to add all removed entries * @head: a list with entries * @entry: an entry within head, could be the head itself * and if so we won't cut the list * * This helper moves the initial part of @head, up to and * including @entry, from @head to @list. You should * pass on @entry an element you know is on @head. @list * should be an empty list or a list you do not care about * losing its data. * */ static inline void list_cut_position(struct list_head *list, struct list_head *head, struct list_head *entry) { if (list_empty(head)) return; if (list_is_singular(head) \u0026\u0026 (head-\u003enext != entry \u0026\u0026 head != entry)) return; if (entry == head) INIT_LIST_HEAD(list); else __list_cut_position(list, head, entry); } 合并链表的实现 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 static inline void __list_splice(const struct list_head *list, struct list_head *prev, struct list_head *next) { struct list_head *first = list-\u003enext; struct list_head *last = list-\u003eprev; first-\u003eprev = prev; prev-\u003enext = first; last-\u003enext = next; next-\u003eprev = last; } /** * list_splice - join two lists, this is designed for stacks * @list: the new list to add. * @head: the place to add it in the first list. */ static inline void list_splice(const struct list_head *list, struct list_head *head) { if (!list_empty(list)) __list_splice(list, head, head-\u003enext); } /** * list_splice_tail - join two lists, each list being a queue * @list: the new list to add. * @head: the place to add it in the first list. */ static inline void list_splice_tail(struct list_head *list, struct list_head *head) { if (!list_empty(list)) __list_splice(list, head-\u003eprev, head); } /** * list_splice_init - join two lists and reinitialise the emptied list. * @list: the new list to add. * @head: the place to add it in the first list. * * The list at @list is reinitialised */ static inline void list_splice_init(struct list_head *list, struct list_head *head) { if (!list_empty(list)) { __list_splice(list, head, head-\u003enext); INIT_LIST_HEAD(list); } } /** * list_splice_tail_init - join two lists and reinitialise the emptied list * @list: the new list to add. * @head: the place to add it in the first list. * * Each of the lists is a queue. * The list at @list is reinitialised */ static inline void list_splice_tail_init(struct list_head *list, struct list_head *head) { if (!list_empty(list)) { __list_splice(list, head-\u003eprev, head); INIT_LIST_HEAD(list); } } 获取包含结点的数据结构 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 /** * list_entry - get the struct for this entry * @ptr: the \u0026struct list_head pointer. * @type: the type of the struct this is embedded in. * @member: the name of the list_struct within the struct. */ #define list_entry(ptr, type, member) \\ container_of(ptr, type, member) /** * list_first_entry - get the first element from a list * @ptr: the list head to take the element from. * @type: the type of the struct this is embedded in. * @member: the name of the list_struct within the struct. * * Note, that list is expected to be not empty. */ #define list_first_entry(ptr, type, member) \\ list_entry((ptr)-\u003enext, type, member) container_of() 宏位于 include/linux/kernel.h：\n1 2 3 4 5 6 7 8 9 10 /** * container_of - cast a member of a structure out to the containing structure * @ptr: the pointer to the member. * @type: the type of the container struct this is embedded in. * @member: the name of the member within the struct. * */ #define container_of(ptr, type, member) ({ \\ const typeof( ((type *)0)-\u003emember ) *__mptr = (ptr); \\ (type *)( (char *)__mptr - offsetof(type, member) );}) 该宏用到的 offsetof() 宏位于 include/linux/stddef.h：\n1 2 3 4 5 #ifdef __compiler_offsetof #define offsetof(TYPE,MEMBER) __compiler_offsetof(TYPE,MEMBER) #else #define offsetof(TYPE, MEMBER) ((size_t) \u0026((TYPE *)0)-\u003eMEMBER) #endif 先来看宏 offsetof() 宏的思路。若编译器内置了相关功能，则使用内置的 __compiler_offsetof()，否则使用自定义的宏。offsetof() 的作用正如其名，获取 TYPE 类型结构体的成员 MEMBER 在该结构体中的偏移量：\n(TYPE *)0：强制类型转换，把 0 转换成指向 TYPE 类型的指针。 ((TYPE *)0)-\u003eMEMBER：获取 TYPE 类型结构体的成员 MEMBER。 \u0026((TYPE *)0)-\u003eMEMBER：获取该成员的地址。 (size_t) \u0026((TYPE *)0)-\u003eMEMBER：把地址强制类型转换为 size_t 类型。 编译器在计算结构体成员的地址时，采用“成员地址 = 结构体首地址 + 成员偏移量”的方式，而这里巧妙地借助了 0 地址，把结构体首地址设为 0，得到的成员地址就等于成员偏移量。注意，这里只是获取了 MEMBER，即编译器只需要进行一些简单的地址计算，而无需实际访问相关的地址，因此不会生成相应的访存指令，也就不会导致运行时错误。\n再来看 container_of() 宏，有很多相似的地方，该宏获通过指向 type 类型结构体的成员 member 的指针 ptr 来获取该结构体本身：\n(type *)0：强制类型转换，把 0 转换成指向 type 类型的指针。 ((type *)0)-\u003emember：获取 type 类型结构体的成员 member。 typeof( ((type *)0)-\u003emember )：获取 member 的类型，记为 T。 const typeof( ((type *)0)-\u003emember ) *__mptr = (ptr);：定义一个 const T * 类型的变量 __mptr，并赋值为 ptr。 (char *)__mptr：将 __mptr 强制转换成 char * 类型（char * 指针加 1 的语义是增加 1 字节）。 (char *)__mptr - offsetof(type, member)：把 __mptr 的地址减去 member 在 type 类型结构体中的偏移量，计算结果为 type 类型结构体的首地址。 (type *)( (char *)__mptr - offsetof(type, member) );：把计算结果（结构体的首地址）强制转换为 type * 类型。 其中，typeof 关键字是 GCC 扩展语法，typeof(exp) var 能获取表达式 exp 的计算结果的类型，并声明该类型的变量 var。比如 typeof(1 + 1) a;，因为表达式 1 + 1 的结果是 int 类型，所以变量 a 也是 int 类型。\n额外定义一个 __mptr 看似是多余的，这么做的理由是为了方便程序员发现错误。具体来说，如果 ptr 的类型和 member 不一致，那么在编译 const typeof( ((type *)0)-\u003emember ) *__mptr = (ptr); 时会产生警告，以便让程序员注意到自己犯了错误。\n最后来看 list_entry() 和 list_first_entry() 宏，就很好理解了。以上文的 fox 结构体为例，通过一个指向 struct fox 成员 list 的指针 p，来获取该结构体本身：\n1 2 3 4 5 struct fox *f; f = list_entry(p, // 指向结构体成员的指针 struct fox, // 结构体类型 list // 成员名 ); 遍历链表的实现 遍历链表的函数相当多，这里只列出几个。\n基本方法的实现 1 2 3 4 5 6 7 8 /** * list_for_each - iterate over a list * @pos: the \u0026struct list_head to use as a loop cursor. * @head: the head for your list. */ #define list_for_each(pos, head) \\ for (pos = (head)-\u003enext; prefetch(pos-\u003enext), pos != (head); \\ pos = pos-\u003enext) 大部分的遍历都通过 prefetch() 来优化遍历速度，prefetch() 借助了 GCC 扩展语法，定义于 include/linux/prefetch.h：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 /* prefetch(x) attempts to pre-emptively get the memory pointed to by address \"x\" into the CPU L1 cache. prefetch(x) should not cause any kind of exception, prefetch(0) is specifically ok. prefetch() should be defined by the architecture, if not, the #define below provides a no-op define. There are 3 prefetch() macros: prefetch(x) - prefetches the cacheline at \"x\" for read prefetchw(x) - prefetches the cacheline at \"x\" for write spin_lock_prefetch(x) - prefetches the spinlock *x for taking there is also PREFETCH_STRIDE which is the architecure-prefered \"lookahead\" size for prefetching streamed operations. */ #ifndef ARCH_HAS_PREFETCH #define prefetch(x) __builtin_prefetch(x) #endif 使用这种方法遍历链表，往往要借助 list_entry() 来获取结构体，比较麻烦，因此不常用。\n常用方法的实现 1 2 3 4 5 6 7 8 9 10 /** * list_for_each_entry - iterate over list of given type * @pos: the type * to use as a loop cursor. * @head: the head for your list. * @member: the name of the list_struct within the struct. */ #define list_for_each_entry(pos, head, member) \\ for (pos = list_entry((head)-\u003enext, typeof(*pos), member); \\ prefetch(pos-\u003emember.next), \u0026pos-\u003emember != (head); \\ pos = list_entry(pos-\u003emember.next, typeof(*pos), member)) 反向遍历的实现 1 2 3 4 5 6 7 8 9 10 /** * list_for_each_entry_reverse - iterate backwards over list of given type. * @pos: the type * to use as a loop cursor. * @head: the head for your list. * @member: the name of the list_struct within the struct. */ #define list_for_each_entry_reverse(pos, head, member) \\ for (pos = list_entry((head)-\u003eprev, typeof(*pos), member); \\ prefetch(pos-\u003emember.prev), \u0026pos-\u003emember != (head); \\ pos = list_entry(pos-\u003emember.prev, typeof(*pos), member)) 遍历时删除的实现 1 2 3 4 5 6 7 8 9 10 11 12 /** * list_for_each_entry_safe - iterate over list of given type safe against removal of list entry * @pos: the type * to use as a loop cursor. * @n: another type * to use as temporary storage * @head: the head for your list. * @member: the name of the list_struct within the struct. */ #define list_for_each_entry_safe(pos, n, head, member) \\ for (pos = list_entry((head)-\u003enext, typeof(*pos), member), \\ n = list_entry(pos-\u003emember.next, typeof(*pos), member); \\ \u0026pos-\u003emember != (head); \\ pos = n, n = list_entry(n-\u003emember.next, typeof(*n), member)) ","wordCount":"2644","inLanguage":"zh","datePublished":"2020-09-28T00:00:00Z","dateModified":"2020-09-28T00:00:00Z","author":{"@type":"Person","name":"FreeFlyingSheep"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://freeflyingsheep.github.io/posts/kernel/data-structure/list/"},"publisher":{"@type":"Organization","name":"FreeFlyingSheep 的小站","logo":{"@type":"ImageObject","url":"https://freeflyingsheep.github.io/favicon.ico"}}}</script></head><body id=top><script>localStorage.getItem("pref-theme")==="dark"&&document.body.classList.add("dark")</script><header class=header><nav class=nav><div class=logo><a href=https://freeflyingsheep.github.io/ accesskey=h title="FreeFlyingSheep 的小站 (Alt + H)">FreeFlyingSheep 的小站</a>
+<span class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)"><svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg><svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></span></div><ul id=menu><li><a href=https://freeflyingsheep.github.io/archives title=Archive><span>Archive</span></a></li><li><a href=https://freeflyingsheep.github.io/tags/ title=Tags><span>Tags</span></a></li><li><a href=https://freeflyingsheep.github.io/categories/ title=Categories><span>Categories</span></a></li><li><a href=https://freeflyingsheep.github.io/series/ title=Series><span>Series</span></a></li><li><a href=https://freeflyingsheep.github.io/about/ title=About><span>About</span></a></li><li><a href=https://freeflyingsheep.github.io/search/ title="Search (Alt + /)" accesskey=/><span>Search</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><div class=breadcrumbs><a href=https://freeflyingsheep.github.io/>主页</a>&nbsp;»&nbsp;<a href=https://freeflyingsheep.github.io/posts/>Posts</a></div><h1 class=post-title>内核链表</h1><div class=post-meta><span title='2020-09-28 00:00:00 +0000 UTC'>九月 28, 2020</span>&nbsp;·&nbsp;13 分钟&nbsp;·&nbsp;FreeFlyingSheep</div></header><div class=toc><details open><summary accesskey=c title="(Alt + C)"><span class=details>目录</span></summary><div class=inner><ul><li><a href=#%e4%bc%a0%e7%bb%9f%e7%9a%84%e9%93%be%e8%a1%a8%e4%b8%8e%e5%86%85%e6%a0%b8%e9%93%be%e8%a1%a8 aria-label=传统的链表与内核链表>传统的链表与内核链表</a></li><li><a href=#%e5%86%85%e6%a0%b8%e9%93%be%e8%a1%a8%e7%9a%84%e4%bd%bf%e7%94%a8 aria-label=内核链表的使用>内核链表的使用</a><ul><li><a href=#%e5%ae%9a%e4%b9%89%e9%93%be%e8%a1%a8 aria-label=定义链表>定义链表</a></li><li><a href=#%e5%88%9d%e5%a7%8b%e5%8c%96%e9%93%be%e8%a1%a8 aria-label=初始化链表>初始化链表</a><ul><li><a href=#%e5%8a%a8%e6%80%81%e5%88%9d%e5%a7%8b%e5%8c%96 aria-label=动态初始化>动态初始化</a></li><li><a href=#%e9%9d%99%e6%80%81%e5%88%9d%e5%a7%8b%e5%8c%96 aria-label=静态初始化>静态初始化</a></li><li><a href=#%e5%ae%9a%e4%b9%89%e9%93%be%e8%a1%a8%e5%a4%b4 aria-label=定义链表头>定义链表头</a></li></ul></li><li><a href=#%e6%b7%bb%e5%8a%a0%e7%bb%93%e7%82%b9 aria-label=添加结点>添加结点</a><ul><li><a href=#%e5%9c%a8%e5%a4%b4%e9%83%a8%e6%b7%bb%e5%8a%a0%e7%bb%93%e7%82%b9 aria-label=在头部添加结点>在头部添加结点</a></li><li><a href=#%e5%9c%a8%e5%b0%be%e9%83%a8%e6%b7%bb%e5%8a%a0%e7%bb%93%e7%82%b9 aria-label=在尾部添加结点>在尾部添加结点</a></li></ul></li><li><a href=#%e5%88%a0%e9%99%a4%e7%bb%93%e7%82%b9 aria-label=删除结点>删除结点</a></li><li><a href=#%e9%81%8d%e5%8e%86%e9%93%be%e8%a1%a8 aria-label=遍历链表>遍历链表</a><ul><li><a href=#%e5%9f%ba%e6%9c%ac%e6%96%b9%e6%b3%95 aria-label=基本方法>基本方法</a></li><li><a href=#%e5%b8%b8%e7%94%a8%e6%96%b9%e6%b3%95 aria-label=常用方法>常用方法</a></li><li><a href=#%e9%81%8d%e5%8e%86%e6%97%b6%e5%88%a0%e9%99%a4 aria-label=遍历时删除>遍历时删除</a></li></ul></li></ul></li><li><a href=#%e5%86%85%e6%a0%b8%e9%93%be%e8%a1%a8%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=内核链表的实现>内核链表的实现</a><ul><li><a href=#%e9%93%be%e8%a1%a8%e7%bb%93%e6%9e%84%e4%bd%93%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=链表结构体的实现>链表结构体的实现</a></li><li><a href=#%e5%88%9d%e5%a7%8b%e5%8c%96%e9%93%be%e8%a1%a8%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=初始化链表的实现>初始化链表的实现</a></li><li><a href=#%e7%9b%b8%e5%85%b3%e5%88%a4%e6%96%ad%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=相关判断的实现>相关判断的实现</a></li><li><a href=#%e6%b7%bb%e5%8a%a0%e7%bb%93%e7%82%b9%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=添加结点的实现>添加结点的实现</a></li><li><a href=#%e5%88%a0%e9%99%a4%e7%bb%93%e7%82%b9%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=删除结点的实现>删除结点的实现</a></li><li><a href=#%e7%a7%bb%e5%8a%a8%e7%bb%93%e7%82%b9%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=移动结点的实现>移动结点的实现</a></li><li><a href=#%e6%8b%86%e5%88%86%e9%93%be%e8%a1%a8%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=拆分链表的实现>拆分链表的实现</a></li><li><a href=#%e5%90%88%e5%b9%b6%e9%93%be%e8%a1%a8%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=合并链表的实现>合并链表的实现</a></li><li><a href=#%e8%8e%b7%e5%8f%96%e5%8c%85%e5%90%ab%e7%bb%93%e7%82%b9%e7%9a%84%e6%95%b0%e6%8d%ae%e7%bb%93%e6%9e%84 aria-label=获取包含结点的数据结构>获取包含结点的数据结构</a></li><li><a href=#%e9%81%8d%e5%8e%86%e9%93%be%e8%a1%a8%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=遍历链表的实现>遍历链表的实现</a><ul><li><a href=#%e5%9f%ba%e6%9c%ac%e6%96%b9%e6%b3%95%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=基本方法的实现>基本方法的实现</a></li><li><a href=#%e5%b8%b8%e7%94%a8%e6%96%b9%e6%b3%95%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=常用方法的实现>常用方法的实现</a></li><li><a href=#%e5%8f%8d%e5%90%91%e9%81%8d%e5%8e%86%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=反向遍历的实现>反向遍历的实现</a></li><li><a href=#%e9%81%8d%e5%8e%86%e6%97%b6%e5%88%a0%e9%99%a4%e7%9a%84%e5%ae%9e%e7%8e%b0 aria-label=遍历时删除的实现>遍历时删除的实现</a></li></ul></li></ul></li></ul></div></details></div><div class=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核链表。</p><h2 id=传统的链表与内核链表>传统的链表与内核链表<a hidden class=anchor aria-hidden=true href=#传统的链表与内核链表>#</a></h2><p>在通常情况下，假设我们需要一个描述狐狸信息的双向链表：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">7
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> tail_length; <span style=color:#75715e>/* 尾巴长度，以厘米为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> weight;      <span style=color:#75715e>/* 重量，以千克为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>bool</span> is_fantastic;         <span style=color:#75715e>/* 这只狐狸奇妙吗? */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>next;          <span style=color:#75715e>/* 指向下一只狐狸 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>prev;          <span style=color:#75715e>/* 指向前一只狐狸 */</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></td></tr></table></div></div><p>我们会在 <code>fox</code> 结构体添加该结构体的指针，这样 <code>fox</code> 数据结构（即链表的结点）就能被塞入链表。</p><p>然后我们针对 <code>fox</code> 结构体实现相关的链表操作，比如添加狐狸：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>add_fox</span>(<span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>list, <span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p>现在我们又需要一个描述兔子信息的双向链表，自然我们需要定义一个新的结构体：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">6
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> rabbit {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> weight;      <span style=color:#75715e>/* 重量，以千克为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>bool</span> is_fantastic;         <span style=color:#75715e>/* 这只兔子奇妙吗? */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> rabbit <span style=color:#f92672>*</span>next;       <span style=color:#75715e>/* 指向下一只兔子 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> rabbit <span style=color:#f92672>*</span>prev;       <span style=color:#75715e>/* 指向前一只兔子 */</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></td></tr></table></div></div><p>然后我们需要针对 <code>rabbit</code> 结构体实现相关的链表操作，比如添加狐狸：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>add_rabbit</span>(<span style=color:#66d9ef>struct</span> rabbit <span style=color:#f92672>*</span>list, <span style=color:#66d9ef>struct</span> rabbit <span style=color:#f92672>*</span>r)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p>这时候就有人提出了，我们已经为 <code>fox</code> 结构体定义过了相关的操作，但为了 <code>rabbit</code> 结构体我们需要再次实现几乎完全一样的功能，这是重复劳动。</p><p>我们希望实现一个更加通用的方案，针对链表的操作应该对所有情况都适用（比如上面的 <code>fox</code> 和 <code>rabbit</code>）。显然传统的链表是无法解决这一问题的，因而与传统的方式相反，内核把链表结点塞入其他数据结构，实现了一种独特解法。</p><p>内核链表是一个独特的双向循环链表，下面我们先展示内核链表的用法，再介绍其具体实现。</p><h2 id=内核链表的使用>内核链表的使用<a hidden class=anchor aria-hidden=true href=#内核链表的使用>#</a></h2><p>内核链表实现称为 <code>list</code>，头文件为 <code>include/linux/list.h</code>。它实现了通用的链表操作，仍然以 <code>fox</code> 结构体为例，下面展示内核链表的常见用法。</p><h3 id=定义链表>定义链表<a hidden class=anchor aria-hidden=true href=#定义链表>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">6
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> tail_length; <span style=color:#75715e>/* 尾巴长度，以厘米为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> weight;      <span style=color:#75715e>/* 重量，以千克为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>bool</span> is_fantastic;         <span style=color:#75715e>/* 这只狐狸奇妙吗? */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head list;     <span style=color:#75715e>/* 所有 fox 结构体形成链表 */</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></td></tr></table></div></div><h3 id=初始化链表>初始化链表<a hidden class=anchor aria-hidden=true href=#初始化链表>#</a></h3><h4 id=动态初始化>动态初始化<a hidden class=anchor aria-hidden=true href=#动态初始化>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">6
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f;
+</span></span><span style=display:flex><span>f <span style=color:#f92672>=</span> <span style=color:#a6e22e>kmalloc</span>(<span style=color:#66d9ef>sizeof</span>(<span style=color:#f92672>*</span>f), GFP_KERNEL);
+</span></span><span style=display:flex><span>f<span style=color:#f92672>-&gt;</span>tail_length <span style=color:#f92672>=</span> <span style=color:#ae81ff>40</span>;
+</span></span><span style=display:flex><span>f<span style=color:#f92672>-&gt;</span>weight <span style=color:#f92672>=</span> <span style=color:#ae81ff>6</span>;
+</span></span><span style=display:flex><span>f<span style=color:#f92672>-&gt;</span>is_fantastic <span style=color:#f92672>=</span> false;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>INIT_LIST_HEAD</span>(<span style=color:#f92672>&amp;</span>f<span style=color:#f92672>-&gt;</span>list);
+</span></span></code></pre></td></tr></table></div></div><h4 id=静态初始化>静态初始化<a hidden class=anchor aria-hidden=true href=#静态初始化>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox f <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>    .tail_length <span style=color:#f92672>=</span> <span style=color:#ae81ff>40</span>,
+</span></span><span style=display:flex><span>    .weight <span style=color:#f92672>=</span> <span style=color:#ae81ff>6</span>,
+</span></span><span style=display:flex><span>    .list <span style=color:#f92672>=</span> <span style=color:#a6e22e>LIST_HEAD_INIT</span>(f.list),
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></td></tr></table></div></div><h4 id=定义链表头>定义链表头<a hidden class=anchor aria-hidden=true href=#定义链表头>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#a6e22e>LIST_HEAD</span>(fox_list);
+</span></span></code></pre></td></tr></table></div></div><h3 id=添加结点>添加结点<a hidden class=anchor aria-hidden=true href=#添加结点>#</a></h3><h4 id=在头部添加结点>在头部添加结点<a hidden class=anchor aria-hidden=true href=#在头部添加结点>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#a6e22e>list_add</span>(<span style=color:#f92672>&amp;</span>f<span style=color:#f92672>-&gt;</span>list, <span style=color:#f92672>&amp;</span>fox_list);
+</span></span></code></pre></td></tr></table></div></div><h4 id=在尾部添加结点>在尾部添加结点<a hidden class=anchor aria-hidden=true href=#在尾部添加结点>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#a6e22e>list_add_tail</span>(<span style=color:#f92672>&amp;</span>f<span style=color:#f92672>-&gt;</span>list, <span style=color:#f92672>&amp;</span>fox_list);
+</span></span></code></pre></td></tr></table></div></div><h3 id=删除结点>删除结点<a hidden class=anchor aria-hidden=true href=#删除结点>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#a6e22e>list_del</span>(<span style=color:#f92672>&amp;</span>f<span style=color:#f92672>-&gt;</span>list);
+</span></span></code></pre></td></tr></table></div></div><h3 id=遍历链表>遍历链表<a hidden class=anchor aria-hidden=true href=#遍历链表>#</a></h3><h4 id=基本方法>基本方法<a hidden class=anchor aria-hidden=true href=#基本方法>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">6
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>p;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>list_for_each</span>(p, <span style=color:#f92672>&amp;</span>fox_list) {
+</span></span><span style=display:flex><span>    f <span style=color:#f92672>=</span> <span style=color:#a6e22e>list_entry</span>(p, <span style=color:#66d9ef>struct</span> fox, list);
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h4 id=常用方法>常用方法<a hidden class=anchor aria-hidden=true href=#常用方法>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>list_for_each_entry</span>(f, <span style=color:#f92672>&amp;</span>fox_list, list) {
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h4 id=遍历时删除>遍历时删除<a hidden class=anchor aria-hidden=true href=#遍历时删除>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f, <span style=color:#f92672>*</span>next;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>list_for_each_entry_safe</span>(f, next, <span style=color:#f92672>&amp;</span>fox_list, list) {
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h2 id=内核链表的实现>内核链表的实现<a hidden class=anchor aria-hidden=true href=#内核链表的实现>#</a></h2><p>所有内核链表的实现均位于 <code>include/linux/list.h</code>。</p><h3 id=链表结构体的实现>链表结构体的实现<a hidden class=anchor aria-hidden=true href=#链表结构体的实现>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> list_head {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>next, <span style=color:#f92672>*</span>prev;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></td></tr></table></div></div><h3 id=初始化链表的实现>初始化链表的实现<a hidden class=anchor aria-hidden=true href=#初始化链表的实现>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#define LIST_HEAD_INIT(name) { &amp;(name), &amp;(name) }
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define LIST_HEAD(name) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    struct list_head name = LIST_HEAD_INIT(name)
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>INIT_LIST_HEAD</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> list;
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> list;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=相关判断的实现>相关判断的实现<a hidden class=anchor aria-hidden=true href=#相关判断的实现>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_is_last - tests whether @list is the last entry in list @head
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the entry to test
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head of the list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>list_is_last</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                               <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> list<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>==</span> head;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_empty - tests whether a list is empty
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the list to test.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>list_empty</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> head<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>==</span> head;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_empty_careful - tests whether a list is empty and not being modified
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the list to test
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Description:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * tests whether a list is empty _and_ checks that no other CPU might be
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * in the process of modifying either member (next or prev)
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * NOTE: using list_empty_careful() without synchronization
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * can only be safe if the only activity that can happen
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * to the list entry is list_del_init(). Eg. it cannot be used
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * if another CPU could re-list_add() it.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>list_empty_careful</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>next <span style=color:#f92672>=</span> head<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> (next <span style=color:#f92672>==</span> head) <span style=color:#f92672>&amp;&amp;</span> (next <span style=color:#f92672>==</span> head<span style=color:#f92672>-&gt;</span>prev);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_is_singular - tests whether a list has just one entry.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the list to test.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>list_is_singular</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(head) <span style=color:#f92672>&amp;&amp;</span> (head<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>==</span> head<span style=color:#f92672>-&gt;</span>prev);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=添加结点的实现>添加结点的实现<a hidden class=anchor aria-hidden=true href=#添加结点的实现>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__list_add</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>new,
+</span></span><span style=display:flex><span>                              <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>prev,
+</span></span><span style=display:flex><span>                              <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>next)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    next<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> new;
+</span></span><span style=display:flex><span>    new<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> next;
+</span></span><span style=display:flex><span>    new<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> prev;
+</span></span><span style=display:flex><span>    prev<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> new;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_add - add a new entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @new: new entry to be added
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: list head to add it after
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Insert a new entry after the specified head.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This is good for implementing stacks.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_add</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>new, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_add</span>(new, head, head<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_add_tail - add a new entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @new: new entry to be added
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: list head to add it before
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Insert a new entry before the specified head.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This is useful for implementing queues.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_add_tail</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>new, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_add</span>(new, head<span style=color:#f92672>-&gt;</span>prev, head);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=删除结点的实现>删除结点的实现<a hidden class=anchor aria-hidden=true href=#删除结点的实现>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Delete a list entry by making the prev/next entries
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * point to each other.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This is only for internal list manipulation where we know
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * the prev/next entries already!
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__list_del</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span> prev, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span> next)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    next<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> prev;
+</span></span><span style=display:flex><span>    prev<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> next;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_del - deletes entry from list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @entry: the element to delete from the list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Note: list_empty() on entry does not return true after this, the entry is
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * in an undefined state.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_del</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>entry)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_del</span>(entry<span style=color:#f92672>-&gt;</span>prev, entry<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>    entry<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> LIST_POISON1;
+</span></span><span style=display:flex><span>    entry<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> LIST_POISON2;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_del_init - deletes entry from list and reinitialize it.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @entry: the element to delete from the list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_del_init</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>entry)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_del</span>(entry<span style=color:#f92672>-&gt;</span>prev, entry<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>INIT_LIST_HEAD</span>(entry);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p>值得注意的是，<code>list_del()</code> 函数在调用 <code>__list_del()</code> 函数完成删除 <code>entry</code> 后，仍然设置了 <code>entry</code> 的指针。<code>LIST_POISON1</code> 和 <code>LIST_POISON2</code> 被定义于 <code>include/linux/poison.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/********** include/linux/list.h **********/</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Architectures might want to move the poison pointer offset
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * into some well-recognized area such as 0xdead000000000000,
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * that is also not mappable by user-space exploits:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_ILLEGAL_POINTER_VALUE
+</span></span></span><span style=display:flex><span><span style=color:#75715e># define POISON_POINTER_DELTA _AC(CONFIG_ILLEGAL_POINTER_VALUE, UL)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span><span style=color:#75715e># define POISON_POINTER_DELTA 0
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * These are non-NULL pointers that will result in page faults
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * under normal circumstances, used to verify that nobody uses
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * non-initialized list entries.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define LIST_POISON1 ((void *) 0x00100100 + POISON_POINTER_DELTA)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define LIST_POISON2 ((void *) 0x00200200 + POISON_POINTER_DELTA)
+</span></span></span></code></pre></td></tr></table></div></div><p>根据注释，设置这两个值是为了在循环中遍历到 <code>entry</code> 时触发页面异常，这相当于加了一道保险，毕竟不应该出现遍历已经删除了的结点的情况。</p><p>与 <code>list_del()</code> 形成对比，<code>list_del_init()</code> 在删除 <code>entry</code> 后，重新初始化 <code>entry</code>，这是为了能再次使用包含 <code>entry</code> 的数据结构，比如需要把该数据结构重新添加到链表中（正如刚刚说的，如果使用 <code>list_add()</code> 添加 <code>list_del()</code> 后的 <code>entry</code>，遍历时会发生页面异常）。</p><h3 id=移动结点的实现>移动结点的实现<a hidden class=anchor aria-hidden=true href=#移动结点的实现>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_move - delete from one list and add as another&#39;s head
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the entry to move
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head that will precede our entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_move</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_del</span>(list<span style=color:#f92672>-&gt;</span>prev, list<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>list_add</span>(list, head);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_move_tail - delete from one list and add as another&#39;s tail
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the entry to move
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head that will follow our entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_move_tail</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                  <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_del</span>(list<span style=color:#f92672>-&gt;</span>prev, list<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>list_add_tail</span>(list, head);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_rotate_left - rotate the list to the left
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head of the list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_rotate_left</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>first;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(head)) {
+</span></span><span style=display:flex><span>        first <span style=color:#f92672>=</span> head<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>list_move_tail</span>(first, head);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p>其中，<code>list_rotate_left()</code> 函数用于将链表的第一个结点移动至末尾。</p><h3 id=拆分链表的实现>拆分链表的实现<a hidden class=anchor aria-hidden=true href=#拆分链表的实现>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__list_cut_position</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>entry)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>new_first <span style=color:#f92672>=</span> entry<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> head<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>next<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> list;
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> entry;
+</span></span><span style=display:flex><span>    entry<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> list;
+</span></span><span style=display:flex><span>    head<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> new_first;
+</span></span><span style=display:flex><span>    new_first<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> head;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_cut_position - cut a list into two
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: a new list to add all removed entries
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: a list with entries
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @entry: an entry within head, could be the head itself
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *      and if so we won&#39;t cut the list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This helper moves the initial part of @head, up to and
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * including @entry, from @head to @list. You should
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * pass on @entry an element you know is on @head. @list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * should be an empty list or a list you do not care about
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * losing its data.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_cut_position</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>entry)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>list_empty</span>(head))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>list_is_singular</span>(head) <span style=color:#f92672>&amp;&amp;</span>
+</span></span><span style=display:flex><span>        (head<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>!=</span> entry <span style=color:#f92672>&amp;&amp;</span> head <span style=color:#f92672>!=</span> entry))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (entry <span style=color:#f92672>==</span> head)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>INIT_LIST_HEAD</span>(list);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>else</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_cut_position</span>(list, head, entry);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=合并链表的实现>合并链表的实现<a hidden class=anchor aria-hidden=true href=#合并链表的实现>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">48
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">49
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">50
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">51
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">52
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">53
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">54
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">55
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">56
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">57
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">58
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">59
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">60
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">61
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">62
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">63
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">64
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">65
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">66
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">67
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">68
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">69
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">70
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__list_splice</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                 <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>prev,
+</span></span><span style=display:flex><span>                                 <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>next)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>first <span style=color:#f92672>=</span> list<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>last <span style=color:#f92672>=</span> list<span style=color:#f92672>-&gt;</span>prev;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    first<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> prev;
+</span></span><span style=display:flex><span>    prev<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> first;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    last<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> next;
+</span></span><span style=display:flex><span>    next<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> last;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_splice - join two lists, this is designed for stacks
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the new list to add.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the place to add it in the first list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_splice</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                               <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(list))
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_splice</span>(list, head, head<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_splice_tail - join two lists, each list being a queue
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the new list to add.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the place to add it in the first list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_splice_tail</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(list))
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_splice</span>(list, head<span style=color:#f92672>-&gt;</span>prev, head);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_splice_init - join two lists and reinitialise the emptied list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the new list to add.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the place to add it in the first list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The list at @list is reinitialised
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_splice_init</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(list)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_splice</span>(list, head, head<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>INIT_LIST_HEAD</span>(list);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_splice_tail_init - join two lists and reinitialise the emptied list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the new list to add.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the place to add it in the first list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Each of the lists is a queue.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The list at @list is reinitialised
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_splice_tail_init</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                         <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(list)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_splice</span>(list, head<span style=color:#f92672>-&gt;</span>prev, head);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>INIT_LIST_HEAD</span>(list);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=获取包含结点的数据结构>获取包含结点的数据结构<a hidden class=anchor aria-hidden=true href=#获取包含结点的数据结构>#</a></h3><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_entry - get the struct for this entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @ptr:    the &amp;struct list_head pointer.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @type:   the type of the struct this is embedded in.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_entry(ptr, type, member) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    container_of(ptr, type, member)
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_first_entry - get the first element from a list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @ptr:    the list head to take the element from.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @type:   the type of the struct this is embedded in.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Note, that list is expected to be not empty.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_first_entry(ptr, type, member) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    list_entry((ptr)-&gt;next, type, member)
+</span></span></span></code></pre></td></tr></table></div></div><p><code>container_of()</code> 宏位于 <code>include/linux/kernel.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * container_of - cast a member of a structure out to the containing structure
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @ptr:    the pointer to the member.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @type:   the type of the container struct this is embedded in.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the member within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define container_of(ptr, type, member) ({                  \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    const typeof( ((type *)0)-&gt;member ) *__mptr = (ptr);    \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    (type *)( (char *)__mptr - offsetof(type, member) );})
+</span></span></span></code></pre></td></tr></table></div></div><p>该宏用到的 <code>offsetof()</code> 宏位于 <code>include/linux/stddef.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#ifdef __compiler_offsetof
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define offsetof(TYPE,MEMBER) __compiler_offsetof(TYPE,MEMBER)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define offsetof(TYPE, MEMBER) ((size_t) &amp;((TYPE *)0)-&gt;MEMBER)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span></code></pre></td></tr></table></div></div><p>先来看宏 <code>offsetof()</code> 宏的思路。若编译器内置了相关功能，则使用内置的 <code>__compiler_offsetof()</code>，否则使用自定义的宏。<code>offsetof()</code> 的作用正如其名，获取 <code>TYPE</code> 类型结构体的成员 <code>MEMBER</code> 在该结构体中的偏移量：</p><ol><li><code>(TYPE *)0</code>：强制类型转换，把 <code>0</code> 转换成指向 <code>TYPE</code> 类型的指针。</li><li><code>((TYPE *)0)->MEMBER</code>：获取 <code>TYPE</code> 类型结构体的成员 <code>MEMBER</code>。</li><li><code>&((TYPE *)0)->MEMBER</code>：获取该成员的地址。</li><li><code>(size_t) &((TYPE *)0)->MEMBER</code>：把地址强制类型转换为 <code>size_t</code> 类型。</li></ol><p>编译器在计算结构体成员的地址时，采用“成员地址 = 结构体首地址 + 成员偏移量”的方式，而这里巧妙地借助了 <code>0</code> 地址，把结构体首地址设为 <code>0</code>，得到的成员地址就等于成员偏移量。注意，这里只是获取了 <code>MEMBER</code>，即编译器只需要进行一些简单的地址计算，而无需实际访问相关的地址，因此不会生成相应的访存指令，也就不会导致运行时错误。</p><p>再来看 <code>container_of()</code> 宏，有很多相似的地方，该宏获通过指向 <code>type</code> 类型结构体的成员 <code>member</code> 的指针 <code>ptr</code> 来获取该结构体本身：</p><ol><li><code>(type *)0</code>：强制类型转换，把 <code>0</code> 转换成指向 <code>type</code> 类型的指针。</li><li><code>((type *)0)->member</code>：获取 <code>type</code> 类型结构体的成员 <code>member</code>。</li><li><code>typeof( ((type *)0)->member )</code>：获取 <code>member</code> 的类型，记为 <code>T</code>。</li><li><code>const typeof( ((type *)0)->member ) *__mptr = (ptr);</code>：定义一个 <code>const T *</code> 类型的变量 <code>__mptr</code>，并赋值为 <code>ptr</code>。</li><li><code>(char *)__mptr</code>：将 <code>__mptr</code> 强制转换成 <code>char *</code> 类型（<code>char *</code> 指针加 <code>1</code> 的语义是增加 <code>1</code> 字节）。</li><li><code>(char *)__mptr - offsetof(type, member)</code>：把 <code>__mptr</code> 的地址减去 <code>member</code> 在 <code>type</code> 类型结构体中的偏移量，计算结果为 <code>type</code> 类型结构体的首地址。</li><li><code>(type *)( (char *)__mptr - offsetof(type, member) );</code>：把计算结果（结构体的首地址）强制转换为 <code>type *</code> 类型。</li></ol><p>其中，<code>typeof</code> 关键字是 GCC 扩展语法，<code>typeof(exp) var</code> 能获取表达式 <code>exp</code> 的计算结果的类型，并声明该类型的变量 <code>var</code>。比如 <code>typeof(1 + 1) a;</code>，因为表达式 <code>1 + 1</code> 的结果是 <code>int</code> 类型，所以变量 <code>a</code> 也是 <code>int</code> 类型。</p><p>额外定义一个 <code>__mptr</code> 看似是多余的，这么做的理由是为了方便程序员发现错误。具体来说，如果 <code>ptr</code> 的类型和 <code>member</code> 不一致，那么在编译 <code>const typeof( ((type *)0)->member ) *__mptr = (ptr);</code> 时会产生警告，以便让程序员注意到自己犯了错误。</p><p>最后来看 <code>list_entry()</code> 和 <code>list_first_entry()</code> 宏，就很好理解了。以上文的 <code>fox</code> 结构体为例，通过一个指向 <code>struct fox</code> 成员 <code>list</code> 的指针 <code>p</code>，来获取该结构体本身：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f;
+</span></span><span style=display:flex><span>f <span style=color:#f92672>=</span> <span style=color:#a6e22e>list_entry</span>(p,          <span style=color:#75715e>// 指向结构体成员的指针
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>               <span style=color:#66d9ef>struct</span> fox, <span style=color:#75715e>// 结构体类型
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>               list        <span style=color:#75715e>// 成员名
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>              );
+</span></span></code></pre></td></tr></table></div></div><h3 id=遍历链表的实现>遍历链表的实现<a hidden class=anchor aria-hidden=true href=#遍历链表的实现>#</a></h3><p>遍历链表的函数相当多，这里只列出几个。</p><h4 id=基本方法的实现>基本方法的实现<a hidden class=anchor aria-hidden=true href=#基本方法的实现>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">8
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_for_each - iterate over a list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @pos:  the &amp;struct list_head to use as a loop cursor.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head for your list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_for_each(pos, head) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    for (pos = (head)-&gt;next; prefetch(pos-&gt;next), pos != (head); \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>            pos = pos-&gt;next)
+</span></span></span></code></pre></td></tr></table></div></div><p>大部分的遍历都通过 <code>prefetch()</code> 来优化遍历速度，<code>prefetch()</code> 借助了 GCC 扩展语法，定义于 <code>include/linux/prefetch.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetch(x) attempts to pre-emptively get the memory pointed to
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    by address &#34;x&#34; into the CPU L1 cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetch(x) should not cause any kind of exception, prefetch(0) is
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    specifically ok.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetch() should be defined by the architecture, if not, the
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    #define below provides a no-op define.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    There are 3 prefetch() macros:
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetch(x)     - prefetches the cacheline at &#34;x&#34; for read
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetchw(x)    - prefetches the cacheline at &#34;x&#34; for write
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    spin_lock_prefetch(x) - prefetches the spinlock *x for taking
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    there is also PREFETCH_STRIDE which is the architecure-prefered
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    &#34;lookahead&#34; size for prefetching streamed operations.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>*/</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifndef ARCH_HAS_PREFETCH
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define prefetch(x) __builtin_prefetch(x)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span></code></pre></td></tr></table></div></div><p>使用这种方法遍历链表，往往要借助 <code>list_entry()</code> 来获取结构体，比较麻烦，因此不常用。</p><h4 id=常用方法的实现>常用方法的实现<a hidden class=anchor aria-hidden=true href=#常用方法的实现>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_for_each_entry - iterate over list of given type
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @pos:    the type * to use as a loop cursor.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head:   the head for your list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_for_each_entry(pos, head, member)                      \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    for (pos = list_entry((head)-&gt;next, typeof(*pos), member);      \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         prefetch(pos-&gt;member.next), &amp;pos-&gt;member != (head);        \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         pos = list_entry(pos-&gt;member.next, typeof(*pos), member))
+</span></span></span></code></pre></td></tr></table></div></div><h4 id=反向遍历的实现>反向遍历的实现<a hidden class=anchor aria-hidden=true href=#反向遍历的实现>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_for_each_entry_reverse - iterate backwards over list of given type.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @pos:    the type * to use as a loop cursor.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head:   the head for your list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_for_each_entry_reverse(pos, head, member)              \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    for (pos = list_entry((head)-&gt;prev, typeof(*pos), member);      \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         prefetch(pos-&gt;member.prev), &amp;pos-&gt;member != (head);        \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         pos = list_entry(pos-&gt;member.prev, typeof(*pos), member))
+</span></span></span></code></pre></td></tr></table></div></div><h4 id=遍历时删除的实现>遍历时删除的实现<a hidden class=anchor aria-hidden=true href=#遍历时删除的实现>#</a></h4><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_for_each_entry_safe - iterate over list of given type safe against removal of list entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @pos:    the type * to use as a loop cursor.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @n:      another type * to use as temporary storage
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head:   the head for your list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_for_each_entry_safe(pos, n, head, member)              \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    for (pos = list_entry((head)-&gt;next, typeof(*pos), member),      \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>            n = list_entry(pos-&gt;member.next, typeof(*pos), member); \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         &amp;pos-&gt;member != (head);                                    \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         pos = n, n = list_entry(n-&gt;member.next, typeof(*n), member))
+</span></span></span></code></pre></td></tr></table></div></div></div><footer class=post-footer><ul class=post-tags><li><a href=https://freeflyingsheep.github.io/tags/linux-%E5%86%85%E6%A0%B8/>Linux 内核</a></li><li><a href=https://freeflyingsheep.github.io/tags/%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/>内核数据结构</a></li><li><a href=https://freeflyingsheep.github.io/tags/%E9%93%BE%E8%A1%A8/>链表</a></li></ul><nav class=paginav><a class=prev href=https://freeflyingsheep.github.io/posts/kernel/data-structure/expansion/><span class=title>« 上一页</span><br><span>GCC 扩展语法</span></a>
+<a class=next href=https://freeflyingsheep.github.io/posts/kernel/introduction/basis/><span class=title>下一页 »</span><br><span>Linux 内核基础</span></a></nav></footer></article></main><footer class=footer><span>&copy; 2023 <a href=https://freeflyingsheep.github.io/>FreeFlyingSheep 的小站</a></span>
+<span>Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+        <a href=https://git.io/hugopapermod rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentcolor"><path d="M12 6H0l6-6z"/></svg></a><script>let menu=document.getElementById("menu");menu&&(menu.scrollLeft=localStorage.getItem("menu-scroll-position"),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}),document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{document.body.className.includes("dark")?(document.body.classList.remove("dark"),localStorage.setItem("pref-theme","light")):(document.body.classList.add("dark"),localStorage.setItem("pref-theme","dark"))})</script><script>document.querySelectorAll("pre > code").forEach(e=>{const n=e.parentNode.parentNode,t=document.createElement("button");t.classList.add("copy-code"),t.innerText="复制";function s(){t.innerText="已复制！",setTimeout(()=>{t.innerText="复制"},2e3)}t.addEventListener("click",t=>{if("clipboard"in navigator){navigator.clipboard.writeText(e.textContent),s();return}const n=document.createRange();n.selectNodeContents(e);const o=window.getSelection();o.removeAllRanges(),o.addRange(n);try{document.execCommand("copy"),s()}catch{}o.removeRange(n)}),n.classList.contains("highlight")?n.appendChild(t):n.parentNode.firstChild==n||(e.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName=="TABLE"?e.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(t):e.parentNode.appendChild(t))})</script></body></html>

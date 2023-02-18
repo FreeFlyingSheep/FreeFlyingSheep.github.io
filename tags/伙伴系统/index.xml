@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>伙伴系统 on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F/</link>
+    <description>Recent content in 伙伴系统 on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Tue, 21 Jul 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>伙伴系统</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/buddy-system/</link>
+      <pubDate>Tue, 21 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/buddy-system/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍伙伴系统。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

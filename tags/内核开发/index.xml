@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>内核开发 on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/%E5%86%85%E6%A0%B8%E5%BC%80%E5%8F%91/</link>
+    <description>Recent content in 内核开发 on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Thu, 22 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/%E5%86%85%E6%A0%B8%E5%BC%80%E5%8F%91/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>内核开发相关知识</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/develop/develop/</link>
+      <pubDate>Thu, 22 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/develop/develop/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核开发部分，简单介绍 Linux 内核的开发结构的相关知识，以提供参考资料为主。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>体系结构相关知识</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/develop/arch/</link>
+      <pubDate>Wed, 21 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/develop/arch/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核开发部分，简单介绍 Linux 内核体系结构和可移植性相关的内容。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内核编译和调试</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/develop/build/</link>
+      <pubDate>Mon, 19 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/develop/build/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核开发部分，简单介绍 Linux 内核编译步骤。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

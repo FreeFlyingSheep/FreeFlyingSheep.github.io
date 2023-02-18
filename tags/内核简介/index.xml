@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>内核简介 on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/%E5%86%85%E6%A0%B8%E7%AE%80%E4%BB%8B/</link>
+    <description>Recent content in 内核简介 on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Wed, 14 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/%E5%86%85%E6%A0%B8%E7%AE%80%E4%BB%8B/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Linux 内核常见函数/宏</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/introduction/common/</link>
+      <pubDate>Wed, 14 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/introduction/common/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核简介部分，简单介绍 Linux 内核常见的函数及其作用。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Linux 内核基础</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/introduction/basis/</link>
+      <pubDate>Sun, 27 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/introduction/basis/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核简介部分，简单介绍 Linux 内核学习的前置知识，以及 Linux 内核的基本概念。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

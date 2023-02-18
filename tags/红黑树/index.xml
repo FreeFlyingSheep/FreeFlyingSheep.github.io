@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>红黑树 on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/%E7%BA%A2%E9%BB%91%E6%A0%91/</link>
+    <description>Recent content in 红黑树 on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Wed, 04 Nov 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/%E7%BA%A2%E9%BB%91%E6%A0%91/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>内核红黑树</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/data-structure/rbtree/</link>
+      <pubDate>Wed, 04 Nov 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/data-structure/rbtree/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核红黑树。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

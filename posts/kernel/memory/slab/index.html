@@ -1,0 +1,997 @@
+<!doctype html><html lang=zh dir=auto><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>slab 分配器 | FreeFlyingSheep 的小站</title><meta name=keywords content="Linux 内核,内存管理,slab 分配器"><meta name=description content="Linux 内核学习笔记系列，内存管理部分，简单介绍 slab 分配器。"><meta name=author content="FreeFlyingSheep"><link rel=canonical href=https://freeflyingsheep.github.io/posts/kernel/memory/slab/><link crossorigin=anonymous href=/assets/css/stylesheet.min.c88963fe2d79462000fd0fb1b3737783c32855d340583e4523343f8735c787f0.css integrity="sha256-yIlj/i15RiAA/Q+xs3N3g8MoVdNAWD5FIzQ/hzXHh/A=" rel="preload stylesheet" as=style><script defer crossorigin=anonymous src=/assets/js/highlight.min.b95bacdc39e37a332a9f883b1e78be4abc1fdca2bc1f2641f55e3cd3dabd4d61.js integrity="sha256-uVus3DnjejMqn4g7Hni+Srwf3KK8HyZB9V4809q9TWE=" onload=hljs.initHighlightingOnLoad()></script>
+<link rel=icon href=https://freeflyingsheep.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://freeflyingsheep.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://freeflyingsheep.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://freeflyingsheep.github.io/apple-touch-icon.png><link rel=mask-icon href=https://freeflyingsheep.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><noscript><style>#theme-toggle,.top-link{display:none}</style></noscript><meta property="og:title" content="slab 分配器"><meta property="og:description" content="Linux 内核学习笔记系列，内存管理部分，简单介绍 slab 分配器。"><meta property="og:type" content="article"><meta property="og:url" content="https://freeflyingsheep.github.io/posts/kernel/memory/slab/"><meta property="og:image" content="https://freeflyingsheep.github.io/papermod-cover.png"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-07-23T00:00:00+00:00"><meta property="article:modified_time" content="2020-07-23T00:00:00+00:00"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content="https://freeflyingsheep.github.io/papermod-cover.png"><meta name=twitter:title content="slab 分配器"><meta name=twitter:description content="Linux 内核学习笔记系列，内存管理部分，简单介绍 slab 分配器。"><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://freeflyingsheep.github.io/posts/"},{"@type":"ListItem","position":2,"name":"slab 分配器","item":"https://freeflyingsheep.github.io/posts/kernel/memory/slab/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"slab 分配器","name":"slab 分配器","description":"Linux 内核学习笔记系列，内存管理部分，简单介绍 slab 分配器。\n","keywords":["Linux 内核","内存管理","slab 分配器"],"articleBody":"Linux 内核学习笔记系列，内存管理部分，简单介绍 slab 分配器。\nslab 分配器简介 slab 分配器是为了解决内碎片问题而设计的。\nslab 分配器算法的前提 所存放数据的类型可以影响内存区的分配方式。slab 分配器概念扩充了这种思想，并把内存区看作对象（object），这些对象由一组数据结构和几个叫构造和析构的函数（方法）组成。前者初始化内存区，后者回收内存区。 内核函数倾向于反复请求同一类型的内存区。 对内存区的请求可以根据它们发生的频率分类。 在引入的对象大小不是几何分布（数据结构的起始物理地址不是 2 的幂（的情况下，可以借助处理器的硬件高速缓存。 硬件高速缓存的高性能会限制对伙伴系统分配器的调用，因为对伙伴系统的每次调用都“弄脏”硬件高速缓存，所以增加了内存的平均访问时间。内核函数对硬件高速缓存的影响就是所谓的函数“足迹（footprint）”，其定义为函数结束时重写硬件高速缓存的百分比。大“足迹”的函数的执行使硬件高速缓存填满了无用信息，导致之后执行代码的速度变慢。 slab 分配器算法的设计思想 频繁使用的数据结构也会频繁分配和释放，因此应当缓存它们。 频繁分配和回收必然会导致内存碎片（难以找到大块连续的可用内存）。空闲链表的缓存应该连续存放，因为已经释放的数据结构又会放回空闲链表，所以不会导致碎片。 回收的对象可以立即投入下一次分配，因此对于频繁的分配和释放，空闲链表能提高性能。 如果分配器知道对象的大小、页大小和总硬件高速缓存大小，它能做出更明智的决策。 如果让部分缓存专属于某个处理器，那么分配和释放就可以在不加 SMP 锁的情况下进行。 如果分配器是与 NUMA 相关的，它就可以从相同的内存结点为请求者进行分配。 对存放的对象进行着色（color），以防多个对象映射到相同的硬件高速缓存行（cache line）。 slab 分配器的组成 包含高速缓存（cache）的主内存区域被划分为多个 slab，每个 slab 由一个或多个连续的页框组成，这些页框既包含已分配的对象（object），也包含空闲的对象。\nslab 分配器相关的描述符 高速缓存描述符 include/linux/slab.h：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 /* * The slab lists of all objects. * Hopefully reduce the internal fragmentation * NUMA: The spinlock could be moved from the kmem_cache_t * into this structure, too. Figure out what causes * fewer cross-node spinlock operations. */ struct kmem_list3 { struct list_head slabs_partial; /* partial list first, better asm code */ struct list_head slabs_full; struct list_head slabs_free; unsigned long free_objects; int free_touched; unsigned long next_reap; struct array_cache *shared; }; /* * kmem_cache_t * * manages a cache. */ struct kmem_cache_s { /* 1) per-cpu data, touched during every alloc/free */ struct array_cache *array[NR_CPUS]; unsigned int batchcount; unsigned int limit; /* 2) touched by every alloc \u0026 free from the backend */ struct kmem_list3 lists; /* NUMA: kmem_3list_t *nodelists[MAX_NUMNODES] */ unsigned int objsize; unsigned int flags; /* constant flags */ unsigned int num; /* # of objs per slab */ unsigned int free_limit; /* upper limit of objects in the lists */ spinlock_t spinlock; /* 3) cache_grow/shrink */ /* order of pgs per slab (2^n) */ unsigned int gfporder; /* force GFP flags, e.g. GFP_DMA */ unsigned int gfpflags; size_t colour; /* cache colouring range */ unsigned int colour_off; /* colour offset */ unsigned int colour_next; /* cache colouring */ kmem_cache_t *slabp_cache; unsigned int slab_size; unsigned int dflags; /* dynamic flags */ /* constructor func */ void (*ctor)(void *, kmem_cache_t *, unsigned long); /* de-constructor func */ void (*dtor)(void *, kmem_cache_t *, unsigned long); /* 4) cache creation/removal */ const char *name; struct list_head next; /* 5) statistics */ ... }; typedef struct kmem_cache_s kmem_cache_t; slab 描述符 mm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 /* * struct slab * * Manages the objs in a slab. Placed either at the beginning of mem allocated * for a slab, or allocated from an general cache. * Slabs are chained into three list: fully used, partial, fully free slabs. */ struct slab { struct list_head list; unsigned long colouroff; void *s_mem; /* including colour offset */ unsigned int inuse; /* num of objs active in slab */ kmem_bufctl_t free; }; 对象描述符 每个对象都有一个类型为 kmem_bufctl_t 的描述符，该描述符定义于 include/asm-xx/types.h (xx 代表相应体系结构)，是一个无符号整型。\nslab 的对象描述符也可以用两种方式存放：\n外部对象描述符：存放在 slab 外部，位于高速缓存描述符 slabp_cache 字段指向的一个普通高速缓存中，内存区大小取决于在 slab 中所存放的对象个数（高速缓存描述符的 num 字段）。 内部对象描述符：存放在 slab 内部，正好位于描述符所描述的对象之前。 各描述符之间的关系 高速缓存描述符与 slab 描述符的关系如下：\nslab 描述符与对象描述符的关系如下：\n普通高速缓存和专用高速缓存 高速缓存被分为普通和专用两种，普通高速缓存只由 slab 分配器用于自己的目的，而专用高速缓存由内核的其余部分使用。\n普通高速缓存 第一个高速缓存叫 kmem_cache，包含在 cache_cache 中。\nmm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 /* internal cache of cache description objs */ static kmem_cache_t cache_cache = { .lists = LIST3_INIT(cache_cache.lists), .batchcount = 1, .limit = BOOT_CPUCACHE_ENTRIES, .objsize = sizeof(kmem_cache_t), .flags = SLAB_NO_REAP, .spinlock = SPIN_LOCK_UNLOCKED, .name = \"kmem_cache\", #if DEBUG .reallen = sizeof(kmem_cache_t), #endif }; 另外的高速缓存包含用作普通用途的内存区，内存范围一般包括 13 个几何分布的内存区，大小分别为 32、64、128、256、512、1024、2048、4096、8192、16384、32768、65536 和 131072 字节。 malloc_size 数组的元素指向 26 个高速缓存描述符，因为每个内存区都包含两个高速缓存，一个用于 ISA DMA 分配，另一个用于常规分配。\nmm/slab.c：\n1 2 3 4 5 6 7 8 9 /* These are the default caches for kmalloc. Custom caches can have other sizes. */ struct cache_sizes malloc_sizes[] = { #define CACHE(x) { .cs_size = (x) }, #include { 0, } #undef CACHE }; EXPORT_SYMBOL(malloc_sizes); include/linux/kmalloc_sizes.h：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 #if (PAGE_SIZE == 4096) CACHE(32) #endif CACHE(64) #if L1_CACHE_BYTES \u003c 64 CACHE(96) #endif CACHE(128) #if L1_CACHE_BYTES \u003c 128 CACHE(192) #endif CACHE(256) CACHE(512) CACHE(1024) CACHE(2048) CACHE(4096) CACHE(8192) CACHE(16384) CACHE(32768) CACHE(65536) CACHE(131072) #ifndef CONFIG_MMU CACHE(262144) CACHE(524288) CACHE(1048576) #ifdef CONFIG_LARGE_ALLOCS CACHE(2097152) CACHE(4194304) CACHE(8388608) CACHE(16777216) CACHE(33554432) #endif /* CONFIG_LARGE_ALLOCS */ #endif /* CONFIG_MMU */ 在系统初始化期间调用位于 mm/slab.c 的 kmem_cache_init() 函数来建立普通高速缓存（书上还提到了 kmem_cache_sizes_init() 函数，我并没找到这个函数，我查了一下较早版本的代码，目前版本该函数似乎已经被合并到了 kmem_cache_init() 函数中）。这个函数的代码太长了，我没有细看，先不展开了。\n专用高速缓存 专用高速缓存由位于 mm/slab.c 的 kmem_cache_create() 函数创建。同样，这个函数的代码太长了，我没有细看，先不展开了。\nslab 分配器与分区页框分配器 向页框分配器请求页框 mm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 /* * Interface to system's page allocator. No need to hold the cache-lock. * * If we requested dmaable memory, we will get it. Even if we * did not request dmaable memory, we might get it, but that * would be relatively rare and ignorable. */ static void *kmem_getpages(kmem_cache_t *cachep, int flags, int nodeid) { struct page *page; void *addr; int i; flags |= cachep-\u003egfpflags; if (likely(nodeid == -1)) { page = alloc_pages(flags, cachep-\u003egfporder); } else { page = alloc_pages_node(nodeid, flags, cachep-\u003egfporder); } if (!page) return NULL; addr = page_address(page); i = (1 \u003c\u003c cachep-\u003egfporder); if (cachep-\u003eflags \u0026 SLAB_RECLAIM_ACCOUNT) atomic_add(i, \u0026slab_reclaim_pages); add_page_state(nr_slab, i); while (i--) { SetPageSlab(page); page++; } return addr; } 释放分配给 slab 的页框 mm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 /* * Interface to system's page release. */ static void kmem_freepages(kmem_cache_t *cachep, void *addr) { unsigned long i = (1\u003c\u003ccachep-\u003egfporder); struct page *page = virt_to_page(addr); const unsigned long nr_freed = i; while (i--) { if (!TestClearPageSlab(page)) BUG(); page++; } sub_page_state(nr_slab, nr_freed); if (current-\u003ereclaim_state) current-\u003ereclaim_state-\u003ereclaimed_slab += nr_freed; free_pages((unsigned long)addr, cachep-\u003egfporder); if (cachep-\u003eflags \u0026 SLAB_RECLAIM_ACCOUNT) atomic_sub(1\u003c\u003ccachep-\u003egfporder, \u0026slab_reclaim_pages); } slab 分配器与高速缓存 给高速缓存分配 slab mm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 /* * Grow (by 1) the number of slabs within a cache. This is called by * kmem_cache_alloc() when there are no active objs left in a cache. */ static int cache_grow (kmem_cache_t * cachep, int flags, int nodeid) { struct slab *slabp; void *objp; size_t offset; int local_flags; unsigned long ctor_flags; /* Be lazy and only check for valid flags here, * keeping it out of the critical path in kmem_cache_alloc(). */ if (flags \u0026 ~(SLAB_DMA|SLAB_LEVEL_MASK|SLAB_NO_GROW)) BUG(); if (flags \u0026 SLAB_NO_GROW) return 0; ctor_flags = SLAB_CTOR_CONSTRUCTOR; local_flags = (flags \u0026 SLAB_LEVEL_MASK); if (!(local_flags \u0026 __GFP_WAIT)) /* * Not allowed to sleep. Need to tell a constructor about * this - it might need to know... */ ctor_flags |= SLAB_CTOR_ATOMIC; /* About to mess with non-constant members - lock. */ check_irq_off(); spin_lock(\u0026cachep-\u003espinlock); /* Get colour for the slab, and cal the next value. */ offset = cachep-\u003ecolour_next; cachep-\u003ecolour_next++; if (cachep-\u003ecolour_next \u003e= cachep-\u003ecolour) cachep-\u003ecolour_next = 0; offset *= cachep-\u003ecolour_off; spin_unlock(\u0026cachep-\u003espinlock); if (local_flags \u0026 __GFP_WAIT) local_irq_enable(); /* * The test for missing atomic flag is performed here, rather than * the more obvious place, simply to reduce the critical path length * in kmem_cache_alloc(). If a caller is seriously mis-behaving they * will eventually be caught here (where it matters). */ kmem_flagcheck(cachep, flags); /* Get mem for the objs. */ if (!(objp = kmem_getpages(cachep, flags, nodeid))) goto failed; /* Get slab management. */ if (!(slabp = alloc_slabmgmt(cachep, objp, offset, local_flags))) goto opps1; set_slab_attr(cachep, slabp, objp); cache_init_objs(cachep, slabp, ctor_flags); if (local_flags \u0026 __GFP_WAIT) local_irq_disable(); check_irq_off(); spin_lock(\u0026cachep-\u003espinlock); /* Make slab active. */ list_add_tail(\u0026slabp-\u003elist, \u0026(list3_data(cachep)-\u003eslabs_free)); STATS_INC_GROWN(cachep); list3_data(cachep)-\u003efree_objects += cachep-\u003enum; spin_unlock(\u0026cachep-\u003espinlock); return 1; opps1: kmem_freepages(cachep, objp); failed: if (local_flags \u0026 __GFP_WAIT) local_irq_disable(); return 0; } 这个函数我没有细看，很多细节现在也看不懂，大致流程是首先调用 kmem_getpages() 获得一组页框来存放一个新的 slab，其次调用 alloc_slabmgmt() 获得一个新的 slab 描述符，然后调用 cache_init_jobs() 讲构造方法应用到新 slab 包含的所有对象上，最后调用 list_add_tail() 来将新得到的 slab 描述符 *slabp 添加到高速缓存描述符 *cachep 的全空 slab 链表的末端并更新高速缓存中的空闲对象计数器。\n从高速缓存释放 slab mm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 /* Destroy all the objs in a slab, and release the mem back to the system. * Before calling the slab must have been unlinked from the cache. * The cache-lock is not held/needed. */ static void slab_destroy (kmem_cache_t *cachep, struct slab *slabp) { void *addr = slabp-\u003es_mem - slabp-\u003ecolouroff; #if DEBUG ... #else if (cachep-\u003edtor) { int i; for (i = 0; i \u003c cachep-\u003enum; i++) { void* objp = slabp-\u003es_mem+cachep-\u003eobjsize*i; (cachep-\u003edtor)(objp, cachep, 0); } } #endif if (unlikely(cachep-\u003eflags \u0026 SLAB_DESTROY_BY_RCU)) { struct slab_rcu *slab_rcu; slab_rcu = (struct slab_rcu *) slabp; slab_rcu-\u003ecachep = cachep; slab_rcu-\u003eaddr = addr; call_rcu(\u0026slab_rcu-\u003ehead, kmem_rcu_free); } else { kmem_freepages(cachep, addr); if (OFF_SLAB(cachep)) kmem_cache_free(cachep-\u003eslabp_cache, slabp); } } 这个函数检查高速缓存是否为它的对象提供了析构方法，如果是，就用析构方法释放 slab 中的所有对象。接着调用 kmem_freepages() 把页框返回给伙伴系统。 关于设置了 SLAB_DESTROY_BY_RCU 标志的代码，见 TODO，这里不展开。\n对齐内存中的对象 对齐对象由 kmem_cache_create() 函数完成，这里不展开。\nslab 着色 简单概括，slab 着色就是对 slab 使用不同的颜色（不同的偏移量），尽量使得不同的对象的映射到不同的硬件高速缓存行上。着色相关的内容最终被摒弃了（slub 分配器），所以我不打算细看了。\n空闲 slab 对象的本地高速缓存 类似 per-CPU 高速缓存，slab 分配器也包含每个 CPU 上的本地高速缓存，只在本地数组溢出时才涉及 slab 数据结构。高速缓存描述符的 array 字段就是一组指向 array_cache 数据结构的指针。本地高速缓存的描述符并不包含本地高速缓存本身的地址，它正好位于描述符之后。\nmm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 /* * struct array_cache * * Per cpu structures * Purpose: * - LIFO ordering, to hand out cache-warm objects from _alloc * - reduce the number of linked list operations * - reduce spinlock operations * * The limit is stored in the per-cpu structure to reduce the data cache * footprint. * */ struct array_cache { unsigned int avail; // 指向本地高速缓存中可使用对象的指针的个数，同时作为高速缓存中第一个空槽的下标 unsigned int limit; // 本地高速缓存中指针的最大个数 unsigned int batchcount; // 本地高速缓存重新填充或腾空时使用的大小 unsigned int touched; // 如果本地高速缓存最近已经被使用过，该标志为 1 }; 分配和释放内存 分配 slab 对象 mm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 static inline void ** ac_entry(struct array_cache *ac) { return (void**)(ac+1); } static inline struct array_cache *ac_data(kmem_cache_t *cachep) { return cachep-\u003earray[smp_processor_id()]; } /** * kmem_cache_alloc - Allocate an object * @cachep: The cache to allocate from. * @flags: See kmalloc(). * * Allocate an object from this cache. The flags are only relevant * if the cache has no available objects. */ void * kmem_cache_alloc (kmem_cache_t *cachep, int flags) { return __cache_alloc(cachep, flags); } static inline void * __cache_alloc (kmem_cache_t *cachep, int flags) { unsigned long save_flags; void* objp; struct array_cache *ac; cache_alloc_debugcheck_before(cachep, flags); local_irq_save(save_flags); ac = ac_data(cachep); if (likely(ac-\u003eavail)) { STATS_INC_ALLOCHIT(cachep); ac-\u003etouched = 1; objp = ac_entry(ac)[--ac-\u003eavail]; } else { STATS_INC_ALLOCMISS(cachep); objp = cache_alloc_refill(cachep, flags); } local_irq_restore(save_flags); objp = cache_alloc_debugcheck_after(cachep, flags, objp, __builtin_return_address(0)); return objp; } 首先试图从本地高速缓存获得一个空闲对象，如果没有，则调用 cache_alloc_refill() 函数重新填充本地高速缓存并获得一个空闲对象。cache_alloc_refill() 函数比较复杂，这里不展开。\n释放 slab 对象 mm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 /** * kmem_cache_free - Deallocate an object * @cachep: The cache the allocation was from. * @objp: The previously allocated object. * * Free an object which was previously allocated from this * cache. */ void kmem_cache_free (kmem_cache_t *cachep, void *objp) { unsigned long flags; local_irq_save(flags); __cache_free(cachep, objp); local_irq_restore(flags); } /* * __cache_free * Release an obj back to its cache. If the obj has a constructed * state, it must be in this state _before_ it is released. * * Called with disabled ints. */ static inline void __cache_free (kmem_cache_t *cachep, void* objp) { struct array_cache *ac = ac_data(cachep); check_irq_off(); objp = cache_free_debugcheck(cachep, objp, __builtin_return_address(0)); if (likely(ac-\u003eavail \u003c ac-\u003elimit)) { STATS_INC_FREEHIT(cachep); ac_entry(ac)[ac-\u003eavail++] = objp; return; } else { STATS_INC_FREEMISS(cachep); cache_flusharray(cachep, ac); ac_entry(ac)[ac-\u003eavail++] = objp; } } 首先检查本地高速缓存是否有空间给指向一个空闲对象的额外指针，如果有，该指针被加到本地高速缓存然后返回。否则，调用 cache_flusharray() 函数来清空本地高速缓存，再将指针加到本地高速缓存。 同样，cache_alloc_refill() 函数比较复杂，这里不展开。\n分配通用对象 include/linux/slab.h：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 static inline void *kmalloc(size_t size, int flags) { if (__builtin_constant_p(size)) { int i = 0; #define CACHE(x) \\ if (size \u003c= x) \\ goto found; \\ else \\ i++; #include \"kmalloc_sizes.h\" #undef CACHE { extern void __you_cannot_kmalloc_that_much(void); __you_cannot_kmalloc_that_much(); } found: return kmem_cache_alloc((flags \u0026 GFP_DMA) ? malloc_sizes[i].cs_dmacachep : malloc_sizes[i].cs_cachep, flags); } return __kmalloc(size, flags); } mm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 /** * kmalloc - allocate memory * @size: how many bytes of memory are required. * @flags: the type of memory to allocate. * * kmalloc is the normal method of allocating memory * in the kernel. * * The @flags argument may be one of: * * %GFP_USER - Allocate memory on behalf of user. May sleep. * * %GFP_KERNEL - Allocate normal kernel ram. May sleep. * * %GFP_ATOMIC - Allocation will not sleep. Use inside interrupt handlers. * * Additionally, the %GFP_DMA flag may be set to indicate the memory * must be suitable for DMA. This can mean different things on different * platforms. For example, on i386, it means that the memory must come * from the first 16MB. */ void * __kmalloc (size_t size, int flags) { struct cache_sizes *csizep = malloc_sizes; for (; csizep-\u003ecs_size; csizep++) { if (size \u003e csizep-\u003ecs_size) continue; #if DEBUG /* This happens if someone tries to call * kmem_cache_create(), or kmalloc(), before * the generic caches are initialized. */ BUG_ON(csizep-\u003ecs_cachep == NULL); #endif return __cache_alloc(flags \u0026 GFP_DMA ? csizep-\u003ecs_dmacachep : csizep-\u003ecs_cachep, flags); } return NULL; } EXPORT_SYMBOL(__kmalloc); 释放通用对象 mm/slab.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 /** * kfree - free previously allocated memory * @objp: pointer returned by kmalloc. * * Don't free memory not originally allocated by kmalloc() * or you will run into trouble. */ void kfree (const void *objp) { kmem_cache_t *c; unsigned long flags; if (!objp) return; local_irq_save(flags); kfree_debugcheck(objp); c = GET_PAGE_CACHE(virt_to_page(objp)); __cache_free(c, (void*)objp); local_irq_restore(flags); } ","wordCount":"2351","inLanguage":"zh","datePublished":"2020-07-23T00:00:00Z","dateModified":"2020-07-23T00:00:00Z","author":{"@type":"Person","name":"FreeFlyingSheep"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://freeflyingsheep.github.io/posts/kernel/memory/slab/"},"publisher":{"@type":"Organization","name":"FreeFlyingSheep 的小站","logo":{"@type":"ImageObject","url":"https://freeflyingsheep.github.io/favicon.ico"}}}</script></head><body id=top><script>localStorage.getItem("pref-theme")==="dark"&&document.body.classList.add("dark")</script><header class=header><nav class=nav><div class=logo><a href=https://freeflyingsheep.github.io/ accesskey=h title="FreeFlyingSheep 的小站 (Alt + H)">FreeFlyingSheep 的小站</a>
+<span class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)"><svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg><svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></span></div><ul id=menu><li><a href=https://freeflyingsheep.github.io/archives title=Archive><span>Archive</span></a></li><li><a href=https://freeflyingsheep.github.io/tags/ title=Tags><span>Tags</span></a></li><li><a href=https://freeflyingsheep.github.io/categories/ title=Categories><span>Categories</span></a></li><li><a href=https://freeflyingsheep.github.io/series/ title=Series><span>Series</span></a></li><li><a href=https://freeflyingsheep.github.io/about/ title=About><span>About</span></a></li><li><a href=https://freeflyingsheep.github.io/search/ title="Search (Alt + /)" accesskey=/><span>Search</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><div class=breadcrumbs><a href=https://freeflyingsheep.github.io/>主页</a>&nbsp;»&nbsp;<a href=https://freeflyingsheep.github.io/posts/>Posts</a></div><h1 class=post-title>slab 分配器</h1><div class=post-meta><span title='2020-07-23 00:00:00 +0000 UTC'>七月 23, 2020</span>&nbsp;·&nbsp;12 分钟&nbsp;·&nbsp;FreeFlyingSheep</div></header><div class=toc><details open><summary accesskey=c title="(Alt + C)"><span class=details>目录</span></summary><div class=inner><ul><li><a href=#slab-%e5%88%86%e9%85%8d%e5%99%a8%e7%ae%80%e4%bb%8b aria-label="slab 分配器简介">slab 分配器简介</a><ul><li><a href=#slab-%e5%88%86%e9%85%8d%e5%99%a8%e7%ae%97%e6%b3%95%e7%9a%84%e5%89%8d%e6%8f%90 aria-label="slab 分配器算法的前提">slab 分配器算法的前提</a></li><li><a href=#slab-%e5%88%86%e9%85%8d%e5%99%a8%e7%ae%97%e6%b3%95%e7%9a%84%e8%ae%be%e8%ae%a1%e6%80%9d%e6%83%b3 aria-label="slab 分配器算法的设计思想">slab 分配器算法的设计思想</a></li></ul></li><li><a href=#slab-%e5%88%86%e9%85%8d%e5%99%a8%e7%9a%84%e7%bb%84%e6%88%90 aria-label="slab 分配器的组成">slab 分配器的组成</a></li><li><a href=#slab-%e5%88%86%e9%85%8d%e5%99%a8%e7%9b%b8%e5%85%b3%e7%9a%84%e6%8f%8f%e8%bf%b0%e7%ac%a6 aria-label="slab 分配器相关的描述符">slab 分配器相关的描述符</a><ul><li><a href=#%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98%e6%8f%8f%e8%bf%b0%e7%ac%a6 aria-label=高速缓存描述符>高速缓存描述符</a></li><li><a href=#slab-%e6%8f%8f%e8%bf%b0%e7%ac%a6 aria-label="slab 描述符">slab 描述符</a></li><li><a href=#%e5%af%b9%e8%b1%a1%e6%8f%8f%e8%bf%b0%e7%ac%a6 aria-label=对象描述符>对象描述符</a></li><li><a href=#%e5%90%84%e6%8f%8f%e8%bf%b0%e7%ac%a6%e4%b9%8b%e9%97%b4%e7%9a%84%e5%85%b3%e7%b3%bb aria-label=各描述符之间的关系>各描述符之间的关系</a></li></ul></li><li><a href=#%e6%99%ae%e9%80%9a%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98%e5%92%8c%e4%b8%93%e7%94%a8%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98 aria-label=普通高速缓存和专用高速缓存>普通高速缓存和专用高速缓存</a><ul><li><a href=#%e6%99%ae%e9%80%9a%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98 aria-label=普通高速缓存>普通高速缓存</a></li><li><a href=#%e4%b8%93%e7%94%a8%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98 aria-label=专用高速缓存>专用高速缓存</a></li></ul></li><li><a href=#slab-%e5%88%86%e9%85%8d%e5%99%a8%e4%b8%8e%e5%88%86%e5%8c%ba%e9%a1%b5%e6%a1%86%e5%88%86%e9%85%8d%e5%99%a8 aria-label="slab 分配器与分区页框分配器">slab 分配器与分区页框分配器</a><ul><li><a href=#%e5%90%91%e9%a1%b5%e6%a1%86%e5%88%86%e9%85%8d%e5%99%a8%e8%af%b7%e6%b1%82%e9%a1%b5%e6%a1%86 aria-label=向页框分配器请求页框>向页框分配器请求页框</a></li><li><a href=#%e9%87%8a%e6%94%be%e5%88%86%e9%85%8d%e7%bb%99-slab-%e7%9a%84%e9%a1%b5%e6%a1%86 aria-label="释放分配给 slab 的页框">释放分配给 slab 的页框</a></li></ul></li><li><a href=#slab-%e5%88%86%e9%85%8d%e5%99%a8%e4%b8%8e%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98 aria-label="slab 分配器与高速缓存">slab 分配器与高速缓存</a><ul><li><a href=#%e7%bb%99%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98%e5%88%86%e9%85%8d-slab aria-label="给高速缓存分配 slab">给高速缓存分配 slab</a></li><li><a href=#%e4%bb%8e%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98%e9%87%8a%e6%94%be-slab aria-label="从高速缓存释放 slab">从高速缓存释放 slab</a></li></ul></li><li><a href=#%e5%af%b9%e9%bd%90%e5%86%85%e5%ad%98%e4%b8%ad%e7%9a%84%e5%af%b9%e8%b1%a1 aria-label=对齐内存中的对象>对齐内存中的对象</a></li><li><a href=#slab-%e7%9d%80%e8%89%b2 aria-label="slab 着色">slab 着色</a></li><li><a href=#%e7%a9%ba%e9%97%b2-slab-%e5%af%b9%e8%b1%a1%e7%9a%84%e6%9c%ac%e5%9c%b0%e9%ab%98%e9%80%9f%e7%bc%93%e5%ad%98 aria-label="空闲 slab 对象的本地高速缓存">空闲 slab 对象的本地高速缓存</a></li><li><a href=#%e5%88%86%e9%85%8d%e5%92%8c%e9%87%8a%e6%94%be%e5%86%85%e5%ad%98 aria-label=分配和释放内存>分配和释放内存</a><ul><li><a href=#%e5%88%86%e9%85%8d-slab-%e5%af%b9%e8%b1%a1 aria-label="分配 slab 对象">分配 slab 对象</a></li><li><a href=#%e9%87%8a%e6%94%be-slab-%e5%af%b9%e8%b1%a1 aria-label="释放 slab 对象">释放 slab 对象</a></li><li><a href=#%e5%88%86%e9%85%8d%e9%80%9a%e7%94%a8%e5%af%b9%e8%b1%a1 aria-label=分配通用对象>分配通用对象</a></li><li><a href=#%e9%87%8a%e6%94%be%e9%80%9a%e7%94%a8%e5%af%b9%e8%b1%a1 aria-label=释放通用对象>释放通用对象</a></li></ul></li></ul></div></details></div><div class=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，内存管理部分，简单介绍 slab 分配器。</p><h2 id=slab-分配器简介>slab 分配器简介<a hidden class=anchor aria-hidden=true href=#slab-分配器简介>#</a></h2><p>slab 分配器是为了解决内碎片问题而设计的。</p><h3 id=slab-分配器算法的前提>slab 分配器算法的前提<a hidden class=anchor aria-hidden=true href=#slab-分配器算法的前提>#</a></h3><ul><li>所存放数据的类型可以影响内存区的分配方式。slab 分配器概念扩充了这种思想，并把内存区看作对象（object），这些对象由一组数据结构和几个叫构造和析构的函数（方法）组成。前者初始化内存区，后者回收内存区。</li><li>内核函数倾向于反复请求同一类型的内存区。</li><li>对内存区的请求可以根据它们发生的频率分类。</li><li>在引入的对象大小不是几何分布（数据结构的起始物理地址不是 2 的幂（的情况下，可以借助处理器的硬件高速缓存。</li><li>硬件高速缓存的高性能会限制对伙伴系统分配器的调用，因为对伙伴系统的每次调用都“弄脏”硬件高速缓存，所以增加了内存的平均访问时间。内核函数对硬件高速缓存的影响就是所谓的函数“足迹（footprint）”，其定义为函数结束时重写硬件高速缓存的百分比。大“足迹”的函数的执行使硬件高速缓存填满了无用信息，导致之后执行代码的速度变慢。</li></ul><h3 id=slab-分配器算法的设计思想>slab 分配器算法的设计思想<a hidden class=anchor aria-hidden=true href=#slab-分配器算法的设计思想>#</a></h3><ul><li>频繁使用的数据结构也会频繁分配和释放，因此应当缓存它们。</li><li>频繁分配和回收必然会导致内存碎片（难以找到大块连续的可用内存）。空闲链表的缓存应该连续存放，因为已经释放的数据结构又会放回空闲链表，所以不会导致碎片。</li><li>回收的对象可以立即投入下一次分配，因此对于频繁的分配和释放，空闲链表能提高性能。</li><li>如果分配器知道对象的大小、页大小和总硬件高速缓存大小，它能做出更明智的决策。</li><li>如果让部分缓存专属于某个处理器，那么分配和释放就可以在不加 SMP 锁的情况下进行。</li><li>如果分配器是与 NUMA 相关的，它就可以从相同的内存结点为请求者进行分配。</li><li>对存放的对象进行着色（color），以防多个对象映射到相同的硬件高速缓存行（cache line）。</li></ul><h2 id=slab-分配器的组成>slab 分配器的组成<a hidden class=anchor aria-hidden=true href=#slab-分配器的组成>#</a></h2><p>包含高速缓存（cache）的主内存区域被划分为多个 slab，每个 slab 由一个或多个连续的页框组成，这些页框既包含已分配的对象（object），也包含空闲的对象。</p><p><img loading=lazy src=/images/kernel/memory/slab.png alt="slab 分配器的组成"></p><h2 id=slab-分配器相关的描述符>slab 分配器相关的描述符<a hidden class=anchor aria-hidden=true href=#slab-分配器相关的描述符>#</a></h2><h3 id=高速缓存描述符>高速缓存描述符<a hidden class=anchor aria-hidden=true href=#高速缓存描述符>#</a></h3><p><code>include/linux/slab.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">48
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">49
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">50
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">51
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">52
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">53
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">54
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">55
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">56
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">57
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">58
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">59
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">60
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">61
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">62
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">63
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">64
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">65
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">66
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The slab lists of all objects.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Hopefully reduce the internal fragmentation
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * NUMA: The spinlock could be moved from the kmem_cache_t
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * into this structure, too. Figure out what causes
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * fewer cross-node spinlock operations.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> kmem_list3 {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head slabs_partial; <span style=color:#75715e>/* partial list first, better asm code */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head slabs_full;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head slabs_free;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> free_objects;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> free_touched;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> next_reap;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>shared;
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmem_cache_t
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * manages a cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> kmem_cache_s {
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 1) per-cpu data, touched during every alloc/free */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>array[NR_CPUS];
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> batchcount;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> limit;
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 2) touched by every alloc &amp; free from the backend */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> kmem_list3 lists;
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* NUMA: kmem_3list_t *nodelists[MAX_NUMNODES] */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> objsize;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> flags; <span style=color:#75715e>/* constant flags */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> num; <span style=color:#75715e>/* # of objs per slab */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> free_limit; <span style=color:#75715e>/* upper limit of objects in the lists */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>spinlock_t</span> spinlock;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 3) cache_grow/shrink */</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* order of pgs per slab (2^n) */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> gfporder;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* force GFP flags, e.g. GFP_DMA */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> gfpflags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>size_t</span> colour; <span style=color:#75715e>/* cache colouring range */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> colour_off; <span style=color:#75715e>/* colour offset */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> colour_next; <span style=color:#75715e>/* cache colouring */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>slabp_cache;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> slab_size;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> dflags; <span style=color:#75715e>/* dynamic flags */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* constructor func */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> (<span style=color:#f92672>*</span>ctor)(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>, <span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* de-constructor func */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> (<span style=color:#f92672>*</span>dtor)(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>, <span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 4) cache creation/removal */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>char</span> <span style=color:#f92672>*</span>name;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head next;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 5) statistics */</span>
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> kmem_cache_s <span style=color:#66d9ef>kmem_cache_t</span>;
+</span></span></code></pre></td></tr></table></div></div><h3 id=slab-描述符>slab 描述符<a hidden class=anchor aria-hidden=true href=#slab-描述符>#</a></h3><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * struct slab
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Manages the objs in a slab. Placed either at the beginning of mem allocated
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * for a slab, or allocated from an general cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Slabs are chained into three list: fully used, partial, fully free slabs.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> slab {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head list;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> colouroff;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>s_mem; <span style=color:#75715e>/* including colour offset */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> inuse; <span style=color:#75715e>/* num of objs active in slab */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>kmem_bufctl_t</span> free;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></td></tr></table></div></div><h3 id=对象描述符>对象描述符<a hidden class=anchor aria-hidden=true href=#对象描述符>#</a></h3><p>每个对象都有一个类型为 <code>kmem_bufctl_t</code> 的描述符，该描述符定义于 <code>include/asm-xx/types.h</code> (<code>xx</code> 代表相应体系结构)，是一个无符号整型。</p><p>slab 的对象描述符也可以用两种方式存放：</p><ul><li>外部对象描述符：存放在 slab 外部，位于高速缓存描述符 <code>slabp_cache</code> 字段指向的一个普通高速缓存中，内存区大小取决于在 slab 中所存放的对象个数（高速缓存描述符的 <code>num</code> 字段）。</li><li>内部对象描述符：存放在 slab 内部，正好位于描述符所描述的对象之前。</li></ul><h3 id=各描述符之间的关系>各描述符之间的关系<a hidden class=anchor aria-hidden=true href=#各描述符之间的关系>#</a></h3><p>高速缓存描述符与 slab 描述符的关系如下：</p><p><img loading=lazy src=/images/kernel/memory/cache_slab.png alt="高速缓存描述符与 slab 描述符的关系"></p><p>slab 描述符与对象描述符的关系如下：</p><p><img loading=lazy src=/images/kernel/memory/slab_object.png alt="slab 描述符与对象描述符的关系"></p><h2 id=普通高速缓存和专用高速缓存>普通高速缓存和专用高速缓存<a hidden class=anchor aria-hidden=true href=#普通高速缓存和专用高速缓存>#</a></h2><p>高速缓存被分为普通和专用两种，普通高速缓存只由 slab 分配器用于自己的目的，而专用高速缓存由内核的其余部分使用。</p><h3 id=普通高速缓存>普通高速缓存<a hidden class=anchor aria-hidden=true href=#普通高速缓存>#</a></h3><p>第一个高速缓存叫 <code>kmem_cache</code>，包含在 <code>cache_cache</code> 中。</p><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* internal cache of cache description objs */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>kmem_cache_t</span> cache_cache <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>    .lists <span style=color:#f92672>=</span> <span style=color:#a6e22e>LIST3_INIT</span>(cache_cache.lists),
+</span></span><span style=display:flex><span>    .batchcount <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>,
+</span></span><span style=display:flex><span>    .limit <span style=color:#f92672>=</span> BOOT_CPUCACHE_ENTRIES,
+</span></span><span style=display:flex><span>    .objsize <span style=color:#f92672>=</span> <span style=color:#66d9ef>sizeof</span>(<span style=color:#66d9ef>kmem_cache_t</span>),
+</span></span><span style=display:flex><span>    .flags <span style=color:#f92672>=</span> SLAB_NO_REAP,
+</span></span><span style=display:flex><span>    .spinlock <span style=color:#f92672>=</span> SPIN_LOCK_UNLOCKED,
+</span></span><span style=display:flex><span>    .name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;kmem_cache&#34;</span>,
+</span></span><span style=display:flex><span><span style=color:#75715e>#if DEBUG
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    .reallen <span style=color:#f92672>=</span> <span style=color:#66d9ef>sizeof</span>(<span style=color:#66d9ef>kmem_cache_t</span>),
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>};
+</span></span></code></pre></td></tr></table></div></div><p>另外的高速缓存包含用作普通用途的内存区，内存范围一般包括 13 个几何分布的内存区，大小分别为 32、64、128、256、512、1024、2048、4096、8192、16384、32768、65536 和 131072 字节。 <code>malloc_size</code> 数组的元素指向 26 个高速缓存描述符，因为每个内存区都包含两个高速缓存，一个用于 ISA DMA 分配，另一个用于常规分配。</p><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">9
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* These are the default caches for kmalloc. Custom caches can have other sizes. */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> cache_sizes malloc_sizes[] <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span><span style=color:#75715e>#define CACHE(x) { .cs_size = (x) },
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#include</span> <span style=color:#75715e>&lt;linux/kmalloc_sizes.h&gt;</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    { <span style=color:#ae81ff>0</span>, }
+</span></span><span style=display:flex><span><span style=color:#75715e>#undef CACHE
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(malloc_sizes);
+</span></span></code></pre></td></tr></table></div></div><p><code>include/linux/kmalloc_sizes.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#if (PAGE_SIZE == 4096)
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>32</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>64</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#if L1_CACHE_BYTES &lt; 64
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>96</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>128</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#if L1_CACHE_BYTES &lt; 128
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>192</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>256</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>512</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>1024</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>2048</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>4096</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>8192</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>16384</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>32768</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>65536</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>131072</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifndef CONFIG_MMU
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>262144</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>524288</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>1048576</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_LARGE_ALLOCS
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>2097152</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>4194304</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>8388608</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>16777216</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>33554432</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif </span><span style=color:#75715e>/* CONFIG_LARGE_ALLOCS */</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif </span><span style=color:#75715e>/* CONFIG_MMU */</span><span style=color:#75715e>
+</span></span></span></code></pre></td></tr></table></div></div><p>在系统初始化期间调用位于 <code>mm/slab.c</code> 的 <code>kmem_cache_init()</code> 函数来建立普通高速缓存（书上还提到了 <code>kmem_cache_sizes_init()</code> 函数，我并没找到这个函数，我查了一下较早版本的代码，目前版本该函数似乎已经被合并到了 <code>kmem_cache_init()</code> 函数中）。这个函数的代码太长了，我没有细看，先不展开了。</p><h3 id=专用高速缓存>专用高速缓存<a hidden class=anchor aria-hidden=true href=#专用高速缓存>#</a></h3><p>专用高速缓存由位于 <code>mm/slab.c</code> 的 <code>kmem_cache_create()</code> 函数创建。同样，这个函数的代码太长了，我没有细看，先不展开了。</p><h2 id=slab-分配器与分区页框分配器>slab 分配器与分区页框分配器<a hidden class=anchor aria-hidden=true href=#slab-分配器与分区页框分配器>#</a></h2><h3 id=向页框分配器请求页框>向页框分配器请求页框<a hidden class=anchor aria-hidden=true href=#向页框分配器请求页框>#</a></h3><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Interface to system&#39;s page allocator. No need to hold the cache-lock.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * If we requested dmaable memory, we will get it. Even if we
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * did not request dmaable memory, we might get it, but that
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * would be relatively rare and ignorable.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>kmem_getpages</span>(<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>int</span> flags, <span style=color:#66d9ef>int</span> nodeid)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>addr;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> i;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    flags <span style=color:#f92672>|=</span> cachep<span style=color:#f92672>-&gt;</span>gfpflags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>likely</span>(nodeid <span style=color:#f92672>==</span> <span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>)) {
+</span></span><span style=display:flex><span>        page <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_pages</span>(flags, cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        page <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_pages_node</span>(nodeid, flags, cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>page)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>    addr <span style=color:#f92672>=</span> <span style=color:#a6e22e>page_address</span>(page);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    i <span style=color:#f92672>=</span> (<span style=color:#ae81ff>1</span> <span style=color:#f92672>&lt;&lt;</span> cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (cachep<span style=color:#f92672>-&gt;</span>flags <span style=color:#f92672>&amp;</span> SLAB_RECLAIM_ACCOUNT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>atomic_add</span>(i, <span style=color:#f92672>&amp;</span>slab_reclaim_pages);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>add_page_state</span>(nr_slab, i);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (i<span style=color:#f92672>--</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>SetPageSlab</span>(page);
+</span></span><span style=display:flex><span>        page<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> addr;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h3 id=释放分配给-slab-的页框>释放分配给 slab 的页框<a hidden class=anchor aria-hidden=true href=#释放分配给-slab-的页框>#</a></h3><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Interface to system&#39;s page release.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kmem_freepages</span>(<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>addr)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> i <span style=color:#f92672>=</span> (<span style=color:#ae81ff>1</span><span style=color:#f92672>&lt;&lt;</span>cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page <span style=color:#f92672>=</span> <span style=color:#a6e22e>virt_to_page</span>(addr);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> nr_freed <span style=color:#f92672>=</span> i;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (i<span style=color:#f92672>--</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>TestClearPageSlab</span>(page))
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>BUG</span>();
+</span></span><span style=display:flex><span>        page<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>sub_page_state</span>(nr_slab, nr_freed);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (current<span style=color:#f92672>-&gt;</span>reclaim_state)
+</span></span><span style=display:flex><span>        current<span style=color:#f92672>-&gt;</span>reclaim_state<span style=color:#f92672>-&gt;</span>reclaimed_slab <span style=color:#f92672>+=</span> nr_freed;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>free_pages</span>((<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)addr, cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (cachep<span style=color:#f92672>-&gt;</span>flags <span style=color:#f92672>&amp;</span> SLAB_RECLAIM_ACCOUNT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>atomic_sub</span>(<span style=color:#ae81ff>1</span><span style=color:#f92672>&lt;&lt;</span>cachep<span style=color:#f92672>-&gt;</span>gfporder, <span style=color:#f92672>&amp;</span>slab_reclaim_pages);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><h2 id=slab-分配器与高速缓存>slab 分配器与高速缓存<a hidden class=anchor aria-hidden=true href=#slab-分配器与高速缓存>#</a></h2><h3 id=给高速缓存分配-slab>给高速缓存分配 slab<a hidden class=anchor aria-hidden=true href=#给高速缓存分配-slab>#</a></h3><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">48
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">49
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">50
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">51
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">52
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">53
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">54
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">55
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">56
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">57
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">58
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">59
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">60
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">61
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">62
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">63
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">64
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">65
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">66
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">67
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">68
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">69
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">70
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">71
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">72
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">73
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">74
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">75
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">76
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">77
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">78
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">79
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">80
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">81
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">82
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">83
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">84
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Grow (by 1) the number of slabs within a cache.  This is called by
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmem_cache_alloc() when there are no active objs left in a cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>cache_grow</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span> cachep, <span style=color:#66d9ef>int</span> flags, <span style=color:#66d9ef>int</span> nodeid)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> slab <span style=color:#f92672>*</span>slabp;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>objp;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>size_t</span> offset;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> local_flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> ctor_flags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Be lazy and only check for valid flags here,
+</span></span></span><span style=display:flex><span><span style=color:#75715e>      * keeping it out of the critical path in kmem_cache_alloc().
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (flags <span style=color:#f92672>&amp;</span> <span style=color:#f92672>~</span>(SLAB_DMA<span style=color:#f92672>|</span>SLAB_LEVEL_MASK<span style=color:#f92672>|</span>SLAB_NO_GROW))
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (flags <span style=color:#f92672>&amp;</span> SLAB_NO_GROW)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ctor_flags <span style=color:#f92672>=</span> SLAB_CTOR_CONSTRUCTOR;
+</span></span><span style=display:flex><span>    local_flags <span style=color:#f92672>=</span> (flags <span style=color:#f92672>&amp;</span> SLAB_LEVEL_MASK);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>(local_flags <span style=color:#f92672>&amp;</span> __GFP_WAIT))
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * Not allowed to sleep.  Need to tell a constructor about
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * this - it might need to know...
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        ctor_flags <span style=color:#f92672>|=</span> SLAB_CTOR_ATOMIC;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* About to mess with non-constant members - lock. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>check_irq_off</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_lock</span>(<span style=color:#f92672>&amp;</span>cachep<span style=color:#f92672>-&gt;</span>spinlock);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Get colour for the slab, and cal the next value. */</span>
+</span></span><span style=display:flex><span>    offset <span style=color:#f92672>=</span> cachep<span style=color:#f92672>-&gt;</span>colour_next;
+</span></span><span style=display:flex><span>    cachep<span style=color:#f92672>-&gt;</span>colour_next<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (cachep<span style=color:#f92672>-&gt;</span>colour_next <span style=color:#f92672>&gt;=</span> cachep<span style=color:#f92672>-&gt;</span>colour)
+</span></span><span style=display:flex><span>        cachep<span style=color:#f92672>-&gt;</span>colour_next <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    offset <span style=color:#f92672>*=</span> cachep<span style=color:#f92672>-&gt;</span>colour_off;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_unlock</span>(<span style=color:#f92672>&amp;</span>cachep<span style=color:#f92672>-&gt;</span>spinlock);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (local_flags <span style=color:#f92672>&amp;</span> __GFP_WAIT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>local_irq_enable</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * The test for missing atomic flag is performed here, rather than
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * the more obvious place, simply to reduce the critical path length
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * in kmem_cache_alloc(). If a caller is seriously mis-behaving they
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * will eventually be caught here (where it matters).
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kmem_flagcheck</span>(cachep, flags);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Get mem for the objs. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>(objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>kmem_getpages</span>(cachep, flags, nodeid)))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> failed;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Get slab management. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>(slabp <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_slabmgmt</span>(cachep, objp, offset, local_flags)))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> opps1;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>set_slab_attr</span>(cachep, slabp, objp);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>cache_init_objs</span>(cachep, slabp, ctor_flags);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (local_flags <span style=color:#f92672>&amp;</span> __GFP_WAIT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>local_irq_disable</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>check_irq_off</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_lock</span>(<span style=color:#f92672>&amp;</span>cachep<span style=color:#f92672>-&gt;</span>spinlock);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Make slab active. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>list_add_tail</span>(<span style=color:#f92672>&amp;</span>slabp<span style=color:#f92672>-&gt;</span>list, <span style=color:#f92672>&amp;</span>(<span style=color:#a6e22e>list3_data</span>(cachep)<span style=color:#f92672>-&gt;</span>slabs_free));
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>STATS_INC_GROWN</span>(cachep);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>list3_data</span>(cachep)<span style=color:#f92672>-&gt;</span>free_objects <span style=color:#f92672>+=</span> cachep<span style=color:#f92672>-&gt;</span>num;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_unlock</span>(<span style=color:#f92672>&amp;</span>cachep<span style=color:#f92672>-&gt;</span>spinlock);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>opps1:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kmem_freepages</span>(cachep, objp);
+</span></span><span style=display:flex><span>failed:
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (local_flags <span style=color:#f92672>&amp;</span> __GFP_WAIT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>local_irq_disable</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p>这个函数我没有细看，很多细节现在也看不懂，大致流程是首先调用 <code>kmem_getpages()</code> 获得一组页框来存放一个新的 slab，其次调用 <code>alloc_slabmgmt()</code> 获得一个新的 slab 描述符，然后调用 <code>cache_init_jobs()</code> 讲构造方法应用到新 slab 包含的所有对象上，最后调用 <code>list_add_tail()</code> 来将新得到的 slab 描述符 <code>*slabp</code> 添加到高速缓存描述符 <code>*cachep</code> 的全空 slab 链表的末端并更新高速缓存中的空闲对象计数器。</p><h3 id=从高速缓存释放-slab>从高速缓存释放 slab<a hidden class=anchor aria-hidden=true href=#从高速缓存释放-slab>#</a></h3><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* Destroy all the objs in a slab, and release the mem back to the system.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Before calling the slab must have been unlinked from the cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The cache-lock is not held/needed.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>slab_destroy</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>struct</span> slab <span style=color:#f92672>*</span>slabp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>addr <span style=color:#f92672>=</span> slabp<span style=color:#f92672>-&gt;</span>s_mem <span style=color:#f92672>-</span> slabp<span style=color:#f92672>-&gt;</span>colouroff;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#if DEBUG
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    ...
+</span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>if</span> (cachep<span style=color:#f92672>-&gt;</span>dtor) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> i;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> (i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; i <span style=color:#f92672>&lt;</span> cachep<span style=color:#f92672>-&gt;</span>num; i<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>void</span><span style=color:#f92672>*</span> objp <span style=color:#f92672>=</span> slabp<span style=color:#f92672>-&gt;</span>s_mem<span style=color:#f92672>+</span>cachep<span style=color:#f92672>-&gt;</span>objsize<span style=color:#f92672>*</span>i;
+</span></span><span style=display:flex><span>            (cachep<span style=color:#f92672>-&gt;</span>dtor)(objp, cachep, <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>unlikely</span>(cachep<span style=color:#f92672>-&gt;</span>flags <span style=color:#f92672>&amp;</span> SLAB_DESTROY_BY_RCU)) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>struct</span> slab_rcu <span style=color:#f92672>*</span>slab_rcu;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        slab_rcu <span style=color:#f92672>=</span> (<span style=color:#66d9ef>struct</span> slab_rcu <span style=color:#f92672>*</span>) slabp;
+</span></span><span style=display:flex><span>        slab_rcu<span style=color:#f92672>-&gt;</span>cachep <span style=color:#f92672>=</span> cachep;
+</span></span><span style=display:flex><span>        slab_rcu<span style=color:#f92672>-&gt;</span>addr <span style=color:#f92672>=</span> addr;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>call_rcu</span>(<span style=color:#f92672>&amp;</span>slab_rcu<span style=color:#f92672>-&gt;</span>head, kmem_rcu_free);
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>kmem_freepages</span>(cachep, addr);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>OFF_SLAB</span>(cachep))
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>kmem_cache_free</span>(cachep<span style=color:#f92672>-&gt;</span>slabp_cache, slabp);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p>这个函数检查高速缓存是否为它的对象提供了析构方法，如果是，就用析构方法释放 slab 中的所有对象。接着调用 <code>kmem_freepages()</code> 把页框返回给伙伴系统。 关于设置了 <code>SLAB_DESTROY_BY_RCU</code> 标志的代码，见 <a href=/posts/kernel/todo>TODO</a>，这里不展开。</p><h2 id=对齐内存中的对象>对齐内存中的对象<a hidden class=anchor aria-hidden=true href=#对齐内存中的对象>#</a></h2><p>对齐对象由 <code>kmem_cache_create()</code> 函数完成，这里不展开。</p><h2 id=slab-着色>slab 着色<a hidden class=anchor aria-hidden=true href=#slab-着色>#</a></h2><p>简单概括，slab 着色就是对 slab 使用不同的颜色（不同的偏移量），尽量使得不同的对象的映射到不同的硬件高速缓存行上。着色相关的内容最终被摒弃了（slub 分配器），所以我不打算细看了。</p><h2 id=空闲-slab-对象的本地高速缓存>空闲 slab 对象的本地高速缓存<a hidden class=anchor aria-hidden=true href=#空闲-slab-对象的本地高速缓存>#</a></h2><p>类似 per-CPU 高速缓存，slab 分配器也包含每个 CPU 上的本地高速缓存，只在本地数组溢出时才涉及 slab 数据结构。高速缓存描述符的 <code>array</code> 字段就是一组指向 <code>array_cache</code> 数据结构的指针。本地高速缓存的描述符并不包含本地高速缓存本身的地址，它正好位于描述符之后。</p><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * struct array_cache
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Per cpu structures
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Purpose:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * - LIFO ordering, to hand out cache-warm objects from _alloc
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * - reduce the number of linked list operations
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * - reduce spinlock operations
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The limit is stored in the per-cpu structure to reduce the data cache
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * footprint.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> array_cache {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> avail; <span style=color:#75715e>// 指向本地高速缓存中可使用对象的指针的个数，同时作为高速缓存中第一个空槽的下标
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> limit; <span style=color:#75715e>// 本地高速缓存中指针的最大个数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> batchcount; <span style=color:#75715e>// 本地高速缓存重新填充或腾空时使用的大小
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> touched; <span style=color:#75715e>// 如果本地高速缓存最近已经被使用过，该标志为 1
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>};
+</span></span></code></pre></td></tr></table></div></div><h2 id=分配和释放内存>分配和释放内存<a hidden class=anchor aria-hidden=true href=#分配和释放内存>#</a></h2><h3 id=分配-slab-对象>分配 slab 对象<a hidden class=anchor aria-hidden=true href=#分配-slab-对象>#</a></h3><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>**</span> <span style=color:#a6e22e>ac_entry</span>(<span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>ac)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> (<span style=color:#66d9ef>void</span><span style=color:#f92672>**</span>)(ac<span style=color:#f92672>+</span><span style=color:#ae81ff>1</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span><span style=color:#a6e22e>ac_data</span>(<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> cachep<span style=color:#f92672>-&gt;</span>array[<span style=color:#a6e22e>smp_processor_id</span>()];
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmem_cache_alloc - Allocate an object
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @cachep: The cache to allocate from.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @flags: See kmalloc().
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Allocate an object from this cache.  The flags are only relevant
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * if the cache has no available objects.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span> <span style=color:#a6e22e>kmem_cache_alloc</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>__cache_alloc</span>(cachep, flags);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span> <span style=color:#a6e22e>__cache_alloc</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> save_flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span><span style=color:#f92672>*</span> objp;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>ac;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>cache_alloc_debugcheck_before</span>(cachep, flags);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_save</span>(save_flags);
+</span></span><span style=display:flex><span>    ac <span style=color:#f92672>=</span> <span style=color:#a6e22e>ac_data</span>(cachep);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>likely</span>(ac<span style=color:#f92672>-&gt;</span>avail)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>STATS_INC_ALLOCHIT</span>(cachep);
+</span></span><span style=display:flex><span>        ac<span style=color:#f92672>-&gt;</span>touched <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>        objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>ac_entry</span>(ac)[<span style=color:#f92672>--</span>ac<span style=color:#f92672>-&gt;</span>avail];
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>STATS_INC_ALLOCMISS</span>(cachep);
+</span></span><span style=display:flex><span>        objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>cache_alloc_refill</span>(cachep, flags);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_restore</span>(save_flags);
+</span></span><span style=display:flex><span>    objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>cache_alloc_debugcheck_after</span>(cachep, flags, objp, <span style=color:#a6e22e>__builtin_return_address</span>(<span style=color:#ae81ff>0</span>));
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> objp;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p>首先试图从本地高速缓存获得一个空闲对象，如果没有，则调用 <code>cache_alloc_refill()</code> 函数重新填充本地高速缓存并获得一个空闲对象。<code>cache_alloc_refill()</code> 函数比较复杂，这里不展开。</p><h3 id=释放-slab-对象>释放 slab 对象<a hidden class=anchor aria-hidden=true href=#释放-slab-对象>#</a></h3><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmem_cache_free - Deallocate an object
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @cachep: The cache the allocation was from.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @objp: The previously allocated object.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Free an object which was previously allocated from this
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kmem_cache_free</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>objp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_save</span>(flags);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__cache_free</span>(cachep, objp);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_restore</span>(flags);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * __cache_free
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Release an obj back to its cache. If the obj has a constructed
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * state, it must be in this state _before_ it is released.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Called with disabled ints.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__cache_free</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>void</span><span style=color:#f92672>*</span> objp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>ac <span style=color:#f92672>=</span> <span style=color:#a6e22e>ac_data</span>(cachep);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>check_irq_off</span>();
+</span></span><span style=display:flex><span>    objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>cache_free_debugcheck</span>(cachep, objp, <span style=color:#a6e22e>__builtin_return_address</span>(<span style=color:#ae81ff>0</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>likely</span>(ac<span style=color:#f92672>-&gt;</span>avail <span style=color:#f92672>&lt;</span> ac<span style=color:#f92672>-&gt;</span>limit)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>STATS_INC_FREEHIT</span>(cachep);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>ac_entry</span>(ac)[ac<span style=color:#f92672>-&gt;</span>avail<span style=color:#f92672>++</span>] <span style=color:#f92672>=</span> objp;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>STATS_INC_FREEMISS</span>(cachep);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>cache_flusharray</span>(cachep, ac);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>ac_entry</span>(ac)[ac<span style=color:#f92672>-&gt;</span>avail<span style=color:#f92672>++</span>] <span style=color:#f92672>=</span> objp;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p>首先检查本地高速缓存是否有空间给指向一个空闲对象的额外指针，如果有，该指针被加到本地高速缓存然后返回。否则，调用 <code>cache_flusharray()</code> 函数来清空本地高速缓存，再将指针加到本地高速缓存。 同样，<code>cache_alloc_refill()</code> 函数比较复杂，这里不展开。</p><h3 id=分配通用对象>分配通用对象<a hidden class=anchor aria-hidden=true href=#分配通用对象>#</a></h3><p><code>include/linux/slab.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>kmalloc</span>(<span style=color:#66d9ef>size_t</span> size, <span style=color:#66d9ef>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>__builtin_constant_p</span>(size)) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>#define CACHE(x) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>        if (size &lt;= x) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>            goto found; \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>        else \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>            i++;
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#include</span> <span style=color:#75715e>&#34;kmalloc_sizes.h&#34;</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#undef CACHE
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>extern</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__you_cannot_kmalloc_that_much</span>(<span style=color:#66d9ef>void</span>);
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>__you_cannot_kmalloc_that_much</span>();
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>found:
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>kmem_cache_alloc</span>((flags <span style=color:#f92672>&amp;</span> GFP_DMA) <span style=color:#f92672>?</span>
+</span></span><span style=display:flex><span>            malloc_sizes[i].cs_dmacachep :
+</span></span><span style=display:flex><span>            malloc_sizes[i].cs_cachep, flags);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>__kmalloc</span>(size, flags);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmalloc - allocate memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @size: how many bytes of memory are required.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @flags: the type of memory to allocate.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmalloc is the normal method of allocating memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * in the kernel.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The @flags argument may be one of:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * %GFP_USER - Allocate memory on behalf of user.  May sleep.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * %GFP_KERNEL - Allocate normal kernel ram.  May sleep.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * %GFP_ATOMIC - Allocation will not sleep.  Use inside interrupt handlers.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Additionally, the %GFP_DMA flag may be set to indicate the memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * must be suitable for DMA.  This can mean different things on different
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * platforms.  For example, on i386, it means that the memory must come
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * from the first 16MB.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span> <span style=color:#a6e22e>__kmalloc</span> (<span style=color:#66d9ef>size_t</span> size, <span style=color:#66d9ef>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> cache_sizes <span style=color:#f92672>*</span>csizep <span style=color:#f92672>=</span> malloc_sizes;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> (; csizep<span style=color:#f92672>-&gt;</span>cs_size; csizep<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (size <span style=color:#f92672>&gt;</span> csizep<span style=color:#f92672>-&gt;</span>cs_size)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>continue</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>#if DEBUG
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#75715e>/* This happens if someone tries to call
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * kmem_cache_create(), or kmalloc(), before
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * the generic caches are initialized.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(csizep<span style=color:#f92672>-&gt;</span>cs_cachep <span style=color:#f92672>==</span> NULL);
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>__cache_alloc</span>(flags <span style=color:#f92672>&amp;</span> GFP_DMA <span style=color:#f92672>?</span>
+</span></span><span style=display:flex><span>             csizep<span style=color:#f92672>-&gt;</span>cs_dmacachep : csizep<span style=color:#f92672>-&gt;</span>cs_cachep, flags);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(__kmalloc);
+</span></span></code></pre></td></tr></table></div></div><h3 id=释放通用对象>释放通用对象<a hidden class=anchor aria-hidden=true href=#释放通用对象>#</a></h3><p><code>mm/slab.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfree - free previously allocated memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @objp: pointer returned by kmalloc.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Don&#39;t free memory not originally allocated by kmalloc()
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * or you will run into trouble.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kfree</span> (<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>objp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>c;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>objp)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_save</span>(flags);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kfree_debugcheck</span>(objp);
+</span></span><span style=display:flex><span>    c <span style=color:#f92672>=</span> <span style=color:#a6e22e>GET_PAGE_CACHE</span>(<span style=color:#a6e22e>virt_to_page</span>(objp));
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__cache_free</span>(c, (<span style=color:#66d9ef>void</span><span style=color:#f92672>*</span>)objp);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_restore</span>(flags);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div></div><footer class=post-footer><ul class=post-tags><li><a href=https://freeflyingsheep.github.io/tags/linux-%E5%86%85%E6%A0%B8/>Linux 内核</a></li><li><a href=https://freeflyingsheep.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/>内存管理</a></li><li><a href=https://freeflyingsheep.github.io/tags/slab-%E5%88%86%E9%85%8D%E5%99%A8/>slab 分配器</a></li></ul><nav class=paginav><a class=prev href=https://freeflyingsheep.github.io/posts/kernel/memory/continuous/><span class=title>« 上一页</span><br><span>连续页框的管理</span></a>
+<a class=next href=https://freeflyingsheep.github.io/posts/kernel/memory/per-cpu/><span class=title>下一页 »</span><br><span>per-CPU 高速缓存</span></a></nav></footer></article></main><footer class=footer><span>&copy; 2023 <a href=https://freeflyingsheep.github.io/>FreeFlyingSheep 的小站</a></span>
+<span>Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+        <a href=https://git.io/hugopapermod rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentcolor"><path d="M12 6H0l6-6z"/></svg></a><script>let menu=document.getElementById("menu");menu&&(menu.scrollLeft=localStorage.getItem("menu-scroll-position"),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}),document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{document.body.className.includes("dark")?(document.body.classList.remove("dark"),localStorage.setItem("pref-theme","light")):(document.body.classList.add("dark"),localStorage.setItem("pref-theme","dark"))})</script><script>document.querySelectorAll("pre > code").forEach(e=>{const n=e.parentNode.parentNode,t=document.createElement("button");t.classList.add("copy-code"),t.innerText="复制";function s(){t.innerText="已复制！",setTimeout(()=>{t.innerText="复制"},2e3)}t.addEventListener("click",t=>{if("clipboard"in navigator){navigator.clipboard.writeText(e.textContent),s();return}const n=document.createRange();n.selectNodeContents(e);const o=window.getSelection();o.removeAllRanges(),o.addRange(n);try{document.execCommand("copy"),s()}catch{}o.removeRange(n)}),n.classList.contains("highlight")?n.appendChild(t):n.parentNode.firstChild==n||(e.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName=="TABLE"?e.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(t):e.parentNode.appendChild(t))})</script></body></html>

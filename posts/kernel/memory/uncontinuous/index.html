@@ -1,0 +1,521 @@
+<!doctype html><html lang=zh dir=auto><head><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta name=robots content="index, follow"><title>非连续页框的管理 | FreeFlyingSheep 的小站</title><meta name=keywords content="Linux 内核,内存管理,非连续页框的管理"><meta name=description content="Linux 内核学习笔记系列，内存管理部分，简单介绍非连续页框的管理。"><meta name=author content="FreeFlyingSheep"><link rel=canonical href=https://freeflyingsheep.github.io/posts/kernel/memory/uncontinuous/><link crossorigin=anonymous href=/assets/css/stylesheet.min.c88963fe2d79462000fd0fb1b3737783c32855d340583e4523343f8735c787f0.css integrity="sha256-yIlj/i15RiAA/Q+xs3N3g8MoVdNAWD5FIzQ/hzXHh/A=" rel="preload stylesheet" as=style><script defer crossorigin=anonymous src=/assets/js/highlight.min.b95bacdc39e37a332a9f883b1e78be4abc1fdca2bc1f2641f55e3cd3dabd4d61.js integrity="sha256-uVus3DnjejMqn4g7Hni+Srwf3KK8HyZB9V4809q9TWE=" onload=hljs.initHighlightingOnLoad()></script>
+<link rel=icon href=https://freeflyingsheep.github.io/favicon.ico><link rel=icon type=image/png sizes=16x16 href=https://freeflyingsheep.github.io/favicon-16x16.png><link rel=icon type=image/png sizes=32x32 href=https://freeflyingsheep.github.io/favicon-32x32.png><link rel=apple-touch-icon href=https://freeflyingsheep.github.io/apple-touch-icon.png><link rel=mask-icon href=https://freeflyingsheep.github.io/safari-pinned-tab.svg><meta name=theme-color content="#2e2e33"><meta name=msapplication-TileColor content="#2e2e33"><noscript><style>#theme-toggle,.top-link{display:none}</style></noscript><meta property="og:title" content="非连续页框的管理"><meta property="og:description" content="Linux 内核学习笔记系列，内存管理部分，简单介绍非连续页框的管理。"><meta property="og:type" content="article"><meta property="og:url" content="https://freeflyingsheep.github.io/posts/kernel/memory/uncontinuous/"><meta property="og:image" content="https://freeflyingsheep.github.io/papermod-cover.png"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-04-26T00:00:00+00:00"><meta property="article:modified_time" content="2021-04-26T00:00:00+00:00"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content="https://freeflyingsheep.github.io/papermod-cover.png"><meta name=twitter:title content="非连续页框的管理"><meta name=twitter:description content="Linux 内核学习笔记系列，内存管理部分，简单介绍非连续页框的管理。"><script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://freeflyingsheep.github.io/posts/"},{"@type":"ListItem","position":2,"name":"非连续页框的管理","item":"https://freeflyingsheep.github.io/posts/kernel/memory/uncontinuous/"}]}</script><script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"非连续页框的管理","name":"非连续页框的管理","description":"Linux 内核学习笔记系列，内存管理部分，简单介绍非连续页框的管理。\n","keywords":["Linux 内核","内存管理","非连续页框的管理"],"articleBody":"Linux 内核学习笔记系列，内存管理部分，简单介绍非连续页框的管理。\n非连续内存区的线性地址空间 非连续内存区的线性地址空间的线性地址空间从 VMALLOC_START 开始，到 VMALLOC_END 结束，这个宏显然是体系结构相关的，下面以 32 位的 x86 为例。\narch/x86/include/asm/pgtable_32_types.h：\n1 2 3 4 5 #define VMALLOC_OFFSET (8 * 1024 * 1024) #define VMALLOC_START ((unsigned long)high_memory + VMALLOC_OFFSET) # define VMALLOC_END (PKMAP_BASE - 2 * PAGE_SIZE) high_memory 对应直接映射的物理内存的末尾，VMALLOC_OFFSET 是一个 8MB 的安全空间，用于与直接映射的物理内存区域隔开。PKMAP_BASE 开始是永久内核映射的线性地址，VMALLOC_END 与之隔了个 8KB 的安全空间（默认页大小是 4KB）。\n高端内存的布局大致如下（arch/x86/include/asm/highmem.h 中的注释）：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 /* * Right now we initialize only a single pte table. It can be extended * easily, subsequent pte tables have to be allocated in one physical * chunk of RAM. */ /* * Ordering is: * * FIXADDR_TOP * fixed_addresses * FIXADDR_START * temp fixed addresses * FIXADDR_BOOT_START * Persistent kmap area * PKMAP_BASE * VMALLOC_END * Vmalloc area * VMALLOC_START * high_memory */ 非连续内存区的描述符 每个非连续内存区对应一个 vm_struct 描述符。\ninclude/linux/vmalloc.h：\n1 2 3 4 5 6 7 8 9 10 struct vm_struct { struct vm_struct *next; void *addr; unsigned long size; unsigned long flags; struct page **pages; unsigned int nr_pages; unsigned long phys_addr; void *caller; }; next：指向下一个 vm_struct 的指针。 addr：内存区内第一个内存单元的线性地址。 size：内存区的大小加上 4096 （安全区间为页大小）。 flags：映射的内存类型。 pages：指向页框描述符指针数组的指针（页框描述符是 struct page）。 nr_pages：页框描述符指针数组中填充的页的个数。 phys_addr：映射硬件设备的 I/O 共享内存（没映射则为 0） caller：调用者的返回地址（__vmalloc_node() 的注释是这么写的，具体用途没研究，这几本书都没介绍，所以我也准备跳过了） 其中，映射的内存类型定义如下。\ninclude/linux/vmalloc.h：\n1 2 3 4 5 6 7 /* bits in flags of vmalloc's vm_struct below */ #define VM_IOREMAP 0x00000001 /* ioremap() and friends */ #define VM_ALLOC 0x00000002 /* vmalloc() */ #define VM_MAP 0x00000004 /* vmap()ed pages */ #define VM_USERMAP 0x00000008 /* suitable for remap_vmalloc_range */ #define VM_VPAGES 0x00000010 /* buffer for pages was vmalloc'ed */ /* bits [20..32] reserved for arch specific ioremap internals */ 分配非连续内存区 分配非连续内存区使用 vmalloc() 函数。\nmm/vmalloc.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 /** * __vmalloc_node - allocate virtually contiguous memory * @size: allocation size * @align: desired alignment * @gfp_mask: flags for the page level allocator * @prot: protection mask for the allocated pages * @node: node to use for allocation or -1 * @caller: caller's return address * * Allocate enough pages to cover @size from the page level * allocator with @gfp_mask flags. Map them into contiguous * kernel virtual space, using a pagetable protection of @prot. */ static void *__vmalloc_node(unsigned long size, unsigned long align, gfp_t gfp_mask, pgprot_t prot, int node, void *caller) { struct vm_struct *area; void *addr; unsigned long real_size = size; size = PAGE_ALIGN(size); if (!size || (size \u003e\u003e PAGE_SHIFT) \u003e totalram_pages) return NULL; area = __get_vm_area_node(size, align, VM_ALLOC, VMALLOC_START, VMALLOC_END, node, gfp_mask, caller); if (!area) return NULL; addr = __vmalloc_area_node(area, gfp_mask, prot, node, caller); /* * A ref_count = 3 is needed because the vm_struct and vmap_area * structures allocated in the __get_vm_area_node() function contain * references to the virtual address of the vmalloc'ed block. */ kmemleak_alloc(addr, real_size, 3, gfp_mask); return addr; } /** * vmalloc - allocate virtually contiguous memory * @size: allocation size * Allocate enough pages to cover @size from the page level * allocator and map them into contiguous kernel virtual space. * * For tight control over page level allocator and protection flags * use __vmalloc() instead. */ void *vmalloc(unsigned long size) { return __vmalloc_node(size, 1, GFP_KERNEL | __GFP_HIGHMEM, PAGE_KERNEL, -1, __builtin_return_address(0)); } EXPORT_SYMBOL(vmalloc); __vmalloc_node() 主要进行如下操作：\n通过 PAGE_ALIGN() 宏将 size 对齐到页大小。 通过 __get_vm_area_node() 创建新的描述符。 通过 __vmalloc_area_node() 分配内存空间。 通过 kmemleak_alloc() 通报内存分配。 PAGE_ALIGN() PAGE_ALIGN() 的原理比较简单，挨个宏找下去就行了。\ninclude/linux/mm.h：\n1 2 /* to align the pointer to the (next) page boundary */ #define PAGE_ALIGN(addr) ALIGN(addr, PAGE_SIZE) include/linux/kernel.h：\n1 2 #define ALIGN(x,a) __ALIGN_MASK(x,(typeof(x))(a)-1) #define __ALIGN_MASK(x,mask) (((x)+(mask))\u0026~(mask)) __get_vm_area_node() mm/vmalloc.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 static struct vm_struct *__get_vm_area_node(unsigned long size, unsigned long align, unsigned long flags, unsigned long start, unsigned long end, int node, gfp_t gfp_mask, void *caller) { static struct vmap_area *va; struct vm_struct *area; BUG_ON(in_interrupt()); if (flags \u0026 VM_IOREMAP) { int bit = fls(size); if (bit \u003e IOREMAP_MAX_ORDER) bit = IOREMAP_MAX_ORDER; else if (bit \u003c PAGE_SHIFT) bit = PAGE_SHIFT; align = 1ul \u003c\u003c bit; } size = PAGE_ALIGN(size); if (unlikely(!size)) return NULL; area = kzalloc_node(sizeof(*area), gfp_mask \u0026 GFP_RECLAIM_MASK, node); if (unlikely(!area)) return NULL; /* * We always allocate a guard page. */ size += PAGE_SIZE; va = alloc_vmap_area(size, align, start, end, node, gfp_mask); if (IS_ERR(va)) { kfree(area); return NULL; } insert_vmalloc_vm(area, va, flags, caller); return area; } __get_vm_area_node() 主要用于创建新的描述符，并把该描述符插入到相关的内核数据结构中，具体细节比较复杂，我不准备看了。\n__vmalloc_area_node() mm/vmalloc.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask, pgprot_t prot, int node, void *caller) { struct page **pages; unsigned int nr_pages, array_size, i; gfp_t nested_gfp = (gfp_mask \u0026 GFP_RECLAIM_MASK) | __GFP_ZERO; nr_pages = (area-\u003esize - PAGE_SIZE) \u003e\u003e PAGE_SHIFT; array_size = (nr_pages * sizeof(struct page *)); area-\u003enr_pages = nr_pages; /* Please note that the recursion is strictly bounded. */ if (array_size \u003e PAGE_SIZE) { pages = __vmalloc_node(array_size, 1, nested_gfp|__GFP_HIGHMEM, PAGE_KERNEL, node, caller); area-\u003eflags |= VM_VPAGES; } else { pages = kmalloc_node(array_size, nested_gfp, node); } area-\u003epages = pages; area-\u003ecaller = caller; if (!area-\u003epages) { remove_vm_area(area-\u003eaddr); kfree(area); return NULL; } for (i = 0; i \u003c area-\u003enr_pages; i++) { struct page *page; if (node \u003c 0) page = alloc_page(gfp_mask); else page = alloc_pages_node(node, gfp_mask, 0); if (unlikely(!page)) { /* Successfully allocated i pages, free them in __vunmap() */ area-\u003enr_pages = i; goto fail; } area-\u003epages[i] = page; } if (map_vm_area(area, prot, \u0026pages)) goto fail; return area-\u003eaddr; fail: vfree(area-\u003eaddr); return NULL; } __vmalloc_area_node() 和 __vmalloc_node() 互相递归，当分配的页描述符指针数组小于一页时，__vmalloc_area_node() 调用 kmalloc_node() 来分配（kmalloc_node() 会通过 kmalloc() 分配内存），结束递归。\n页描述符指针数组的元素指向 alloc_pages_node() 分配的页（alloc_page() 最终也会调用 alloc_pages_node()，见请求页框），完成填充。\n完成分配后，通过 map_vm_area() 来修改页表项，这个函数的细节比较复杂，暂时不准备去看了。\nkmemleak_alloc() kmemleak_alloc() 是 kmemleak 的 API，kmemleak 主要用于检测内存泄漏，相关内容不属于本系列学习笔记的范畴。\n释放非连续内存区 释放非连续内存区使用 vfree() 函数。\nmm/vmalloc.c：\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 static void __vunmap(const void *addr, int deallocate_pages) { struct vm_struct *area; if (!addr) return; if ((PAGE_SIZE-1) \u0026 (unsigned long)addr) { WARN(1, KERN_ERR \"Trying to vfree() bad address (%p)\\n\", addr); return; } area = remove_vm_area(addr); if (unlikely(!area)) { WARN(1, KERN_ERR \"Trying to vfree() nonexistent vm area (%p)\\n\", addr); return; } debug_check_no_locks_freed(addr, area-\u003esize); debug_check_no_obj_freed(addr, area-\u003esize); if (deallocate_pages) { int i; for (i = 0; i \u003c area-\u003enr_pages; i++) { struct page *page = area-\u003epages[i]; BUG_ON(!page); __free_page(page); } if (area-\u003eflags \u0026 VM_VPAGES) vfree(area-\u003epages); else kfree(area-\u003epages); } kfree(area); return; } /** * vfree - release memory allocated by vmalloc() * @addr: memory base address * * Free the virtually continuous memory area starting at @addr, as * obtained from vmalloc(), vmalloc_32() or __vmalloc(). If @addr is * NULL, no operation is performed. * * Must not be called in interrupt context. */ void vfree(const void *addr) { BUG_ON(in_interrupt()); kmemleak_free(addr); __vunmap(addr, 1); } EXPORT_SYMBOL(vfree); __vunmap() 主要进行如下操作（进行和分配顺序相反的操作）：\n通过 remove_vm_area() 清楚相应的页表项。 通过 __free_page() 释放分配的页。 通过 kfree() 释放描述符。 但这里面的细节比较复杂，我暂时不准备看了。\n","wordCount":"1237","inLanguage":"zh","datePublished":"2021-04-26T00:00:00Z","dateModified":"2021-04-26T00:00:00Z","author":{"@type":"Person","name":"FreeFlyingSheep"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://freeflyingsheep.github.io/posts/kernel/memory/uncontinuous/"},"publisher":{"@type":"Organization","name":"FreeFlyingSheep 的小站","logo":{"@type":"ImageObject","url":"https://freeflyingsheep.github.io/favicon.ico"}}}</script></head><body id=top><script>localStorage.getItem("pref-theme")==="dark"&&document.body.classList.add("dark")</script><header class=header><nav class=nav><div class=logo><a href=https://freeflyingsheep.github.io/ accesskey=h title="FreeFlyingSheep 的小站 (Alt + H)">FreeFlyingSheep 的小站</a>
+<span class=logo-switches><button id=theme-toggle accesskey=t title="(Alt + T)"><svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg><svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button></span></div><ul id=menu><li><a href=https://freeflyingsheep.github.io/archives title=Archive><span>Archive</span></a></li><li><a href=https://freeflyingsheep.github.io/tags/ title=Tags><span>Tags</span></a></li><li><a href=https://freeflyingsheep.github.io/categories/ title=Categories><span>Categories</span></a></li><li><a href=https://freeflyingsheep.github.io/series/ title=Series><span>Series</span></a></li><li><a href=https://freeflyingsheep.github.io/about/ title=About><span>About</span></a></li><li><a href=https://freeflyingsheep.github.io/search/ title="Search (Alt + /)" accesskey=/><span>Search</span></a></li></ul></nav></header><main class=main><article class=post-single><header class=post-header><div class=breadcrumbs><a href=https://freeflyingsheep.github.io/>主页</a>&nbsp;»&nbsp;<a href=https://freeflyingsheep.github.io/posts/>Posts</a></div><h1 class=post-title>非连续页框的管理</h1><div class=post-meta><span title='2021-04-26 00:00:00 +0000 UTC'>四月 26, 2021</span>&nbsp;·&nbsp;6 分钟&nbsp;·&nbsp;FreeFlyingSheep</div></header><div class=toc><details open><summary accesskey=c title="(Alt + C)"><span class=details>目录</span></summary><div class=inner><ul><li><a href=#%e9%9d%9e%e8%bf%9e%e7%bb%ad%e5%86%85%e5%ad%98%e5%8c%ba%e7%9a%84%e7%ba%bf%e6%80%a7%e5%9c%b0%e5%9d%80%e7%a9%ba%e9%97%b4 aria-label=非连续内存区的线性地址空间>非连续内存区的线性地址空间</a></li><li><a href=#%e9%9d%9e%e8%bf%9e%e7%bb%ad%e5%86%85%e5%ad%98%e5%8c%ba%e7%9a%84%e6%8f%8f%e8%bf%b0%e7%ac%a6 aria-label=非连续内存区的描述符>非连续内存区的描述符</a></li><li><a href=#%e5%88%86%e9%85%8d%e9%9d%9e%e8%bf%9e%e7%bb%ad%e5%86%85%e5%ad%98%e5%8c%ba aria-label=分配非连续内存区>分配非连续内存区</a><ul><li><a href=#page_align aria-label=PAGE_ALIGN()><code>PAGE_ALIGN()</code></a></li><li><a href=#__get_vm_area_node aria-label=__get_vm_area_node()><code>__get_vm_area_node()</code></a></li><li><a href=#__vmalloc_area_node aria-label=__vmalloc_area_node()><code>__vmalloc_area_node()</code></a></li><li><a href=#kmemleak_alloc aria-label=kmemleak_alloc()>kmemleak_alloc()</a></li></ul></li><li><a href=#%e9%87%8a%e6%94%be%e9%9d%9e%e8%bf%9e%e7%bb%ad%e5%86%85%e5%ad%98%e5%8c%ba aria-label=释放非连续内存区>释放非连续内存区</a></li></ul></div></details></div><div class=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，内存管理部分，简单介绍非连续页框的管理。</p><h2 id=非连续内存区的线性地址空间>非连续内存区的线性地址空间<a hidden class=anchor aria-hidden=true href=#非连续内存区的线性地址空间>#</a></h2><p>非连续内存区的线性地址空间的线性地址空间从 <code>VMALLOC_START</code> 开始，到 <code>VMALLOC_END</code> 结束，这个宏显然是体系结构相关的，下面以 32 位的 x86 为例。</p><p><code>arch/x86/include/asm/pgtable_32_types.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#define VMALLOC_OFFSET  (8 * 1024 * 1024)
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define VMALLOC_START   ((unsigned long)high_memory + VMALLOC_OFFSET)
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e># define VMALLOC_END    (PKMAP_BASE - 2 * PAGE_SIZE)
+</span></span></span></code></pre></td></tr></table></div></div><p><code>high_memory</code> 对应直接映射的物理内存的末尾，<code>VMALLOC_OFFSET</code> 是一个 <code>8MB</code> 的安全空间，用于与直接映射的物理内存区域隔开。<code>PKMAP_BASE</code> 开始是永久内核映射的线性地址，<code>VMALLOC_END</code> 与之隔了个 <code>8KB</code> 的安全空间（默认页大小是 <code>4KB</code>）。</p><p>高端内存的布局大致如下（<code>arch/x86/include/asm/highmem.h</code> 中的注释）：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Right now we initialize only a single pte table. It can be extended
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * easily, subsequent pte tables have to be allocated in one physical
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * chunk of RAM.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Ordering is:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * FIXADDR_TOP
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *                      fixed_addresses
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * FIXADDR_START
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *                      temp fixed addresses
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * FIXADDR_BOOT_START
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *                      Persistent kmap area
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * PKMAP_BASE
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * VMALLOC_END
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *                      Vmalloc area
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * VMALLOC_START
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * high_memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=非连续内存区的描述符>非连续内存区的描述符<a hidden class=anchor aria-hidden=true href=#非连续内存区的描述符>#</a></h2><p>每个非连续内存区对应一个 <code>vm_struct</code> 描述符。</p><p><code>include/linux/vmalloc.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> vm_struct {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> vm_struct    <span style=color:#f92672>*</span>next;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span>                <span style=color:#f92672>*</span>addr;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>       size;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>       flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page         <span style=color:#f92672>**</span>pages;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span>        nr_pages;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>       phys_addr;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span>                <span style=color:#f92672>*</span>caller;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></td></tr></table></div></div><ul><li><code>next</code>：指向下一个 <code>vm_struct</code> 的指针。</li><li><code>addr</code>：内存区内第一个内存单元的线性地址。</li><li><code>size</code>：内存区的大小加上 <code>4096</code> （安全区间为页大小）。</li><li><code>flags</code>：映射的内存类型。</li><li><code>pages</code>：指向页框描述符指针数组的指针（页框描述符是 <code>struct page</code>）。</li><li><code>nr_pages</code>：页框描述符指针数组中填充的页的个数。</li><li><code>phys_addr</code>：映射硬件设备的 I/O 共享内存（没映射则为 <code>0</code>）</li><li><code>caller</code>：调用者的返回地址（<code>__vmalloc_node()</code> 的注释是这么写的，具体用途没研究，这几本书都没介绍，所以我也准备跳过了）</li></ul><p>其中，映射的内存类型定义如下。</p><p><code>include/linux/vmalloc.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">7
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* bits in flags of vmalloc&#39;s vm_struct below */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define VM_IOREMAP  0x00000001  </span><span style=color:#75715e>/* ioremap() and friends */</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define VM_ALLOC    0x00000002  </span><span style=color:#75715e>/* vmalloc() */</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define VM_MAP      0x00000004  </span><span style=color:#75715e>/* vmap()ed pages */</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define VM_USERMAP  0x00000008  </span><span style=color:#75715e>/* suitable for remap_vmalloc_range */</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define VM_VPAGES   0x00000010  </span><span style=color:#75715e>/* buffer for pages was vmalloc&#39;ed */</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#75715e>/* bits [20..32] reserved for arch specific ioremap internals */</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=分配非连续内存区>分配非连续内存区<a hidden class=anchor aria-hidden=true href=#分配非连续内存区>#</a></h2><p>分配非连续内存区使用 <code>vmalloc()</code> 函数。</p><p><code>mm/vmalloc.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">48
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">49
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">50
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">51
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">52
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">53
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">54
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">55
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">56
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">57
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">58
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  __vmalloc_node  -  allocate virtually contiguous memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @size:      allocation size
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @align:     desired alignment
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @gfp_mask:  flags for the page level allocator
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @prot:      protection mask for the allocated pages
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @node:      node to use for allocation or -1
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @caller:    caller&#39;s return address
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Allocate enough pages to cover @size from the page level
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  allocator with @gfp_mask flags.  Map them into contiguous
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  kernel virtual space, using a pagetable protection of @prot.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>__vmalloc_node</span>(<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> size, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> align,
+</span></span><span style=display:flex><span>                            <span style=color:#66d9ef>gfp_t</span> gfp_mask, <span style=color:#66d9ef>pgprot_t</span> prot,
+</span></span><span style=display:flex><span>                            <span style=color:#66d9ef>int</span> node, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>caller)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> vm_struct <span style=color:#f92672>*</span>area;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>addr;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> real_size <span style=color:#f92672>=</span> size;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size <span style=color:#f92672>=</span> <span style=color:#a6e22e>PAGE_ALIGN</span>(size);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>size <span style=color:#f92672>||</span> (size <span style=color:#f92672>&gt;&gt;</span> PAGE_SHIFT) <span style=color:#f92672>&gt;</span> totalram_pages)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    area <span style=color:#f92672>=</span> <span style=color:#a6e22e>__get_vm_area_node</span>(size, align, VM_ALLOC, VMALLOC_START,
+</span></span><span style=display:flex><span>                  VMALLOC_END, node, gfp_mask, caller);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>area)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    addr <span style=color:#f92672>=</span> <span style=color:#a6e22e>__vmalloc_area_node</span>(area, gfp_mask, prot, node, caller);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * A ref_count = 3 is needed because the vm_struct and vmap_area
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * structures allocated in the __get_vm_area_node() function contain
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * references to the virtual address of the vmalloc&#39;ed block.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kmemleak_alloc</span>(addr, real_size, <span style=color:#ae81ff>3</span>, gfp_mask);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> addr;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  vmalloc  -  allocate virtually contiguous memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @size:      allocation size
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Allocate enough pages to cover @size from the page level
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  allocator and map them into contiguous kernel virtual space.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  For tight control over page level allocator and protection flags
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  use __vmalloc() instead.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>vmalloc</span>(<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> size)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>__vmalloc_node</span>(size, <span style=color:#ae81ff>1</span>, GFP_KERNEL <span style=color:#f92672>|</span> __GFP_HIGHMEM, PAGE_KERNEL,
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>, <span style=color:#a6e22e>__builtin_return_address</span>(<span style=color:#ae81ff>0</span>));
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(vmalloc);
+</span></span></code></pre></td></tr></table></div></div><p><code>__vmalloc_node()</code> 主要进行如下操作：</p><ol><li>通过 <code>PAGE_ALIGN()</code> 宏将 <code>size</code> 对齐到页大小。</li><li>通过 <code>__get_vm_area_node()</code> 创建新的描述符。</li><li>通过 <code>__vmalloc_area_node()</code> 分配内存空间。</li><li>通过 <code>kmemleak_alloc()</code> 通报内存分配。</li></ol><h3 id=page_align><code>PAGE_ALIGN()</code><a hidden class=anchor aria-hidden=true href=#page_align>#</a></h3><p><code>PAGE_ALIGN()</code> 的原理比较简单，挨个宏找下去就行了。</p><p><code>include/linux/mm.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* to align the pointer to the (next) page boundary */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define PAGE_ALIGN(addr) ALIGN(addr, PAGE_SIZE)
+</span></span></span></code></pre></td></tr></table></div></div><p><code>include/linux/kernel.h</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">2
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#define ALIGN(x,a)              __ALIGN_MASK(x,(typeof(x))(a)-1)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define __ALIGN_MASK(x,mask)    (((x)+(mask))&amp;~(mask))
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=__get_vm_area_node><code>__get_vm_area_node()</code><a hidden class=anchor aria-hidden=true href=#__get_vm_area_node>#</a></h3><p><code>mm/vmalloc.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>struct</span> vm_struct <span style=color:#f92672>*</span><span style=color:#a6e22e>__get_vm_area_node</span>(<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> size,
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> align, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> start,
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> end, <span style=color:#66d9ef>int</span> node, <span style=color:#66d9ef>gfp_t</span> gfp_mask, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>caller)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>struct</span> vmap_area <span style=color:#f92672>*</span>va;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> vm_struct <span style=color:#f92672>*</span>area;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>in_interrupt</span>());
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (flags <span style=color:#f92672>&amp;</span> VM_IOREMAP) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> bit <span style=color:#f92672>=</span> <span style=color:#a6e22e>fls</span>(size);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (bit <span style=color:#f92672>&gt;</span> IOREMAP_MAX_ORDER)
+</span></span><span style=display:flex><span>            bit <span style=color:#f92672>=</span> IOREMAP_MAX_ORDER;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>else</span> <span style=color:#66d9ef>if</span> (bit <span style=color:#f92672>&lt;</span> PAGE_SHIFT)
+</span></span><span style=display:flex><span>            bit <span style=color:#f92672>=</span> PAGE_SHIFT;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        align <span style=color:#f92672>=</span> <span style=color:#ae81ff>1ul</span> <span style=color:#f92672>&lt;&lt;</span> bit;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size <span style=color:#f92672>=</span> <span style=color:#a6e22e>PAGE_ALIGN</span>(size);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>unlikely</span>(<span style=color:#f92672>!</span>size))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    area <span style=color:#f92672>=</span> <span style=color:#a6e22e>kzalloc_node</span>(<span style=color:#66d9ef>sizeof</span>(<span style=color:#f92672>*</span>area), gfp_mask <span style=color:#f92672>&amp;</span> GFP_RECLAIM_MASK, node);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>unlikely</span>(<span style=color:#f92672>!</span>area))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * We always allocate a guard page.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    size <span style=color:#f92672>+=</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    va <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_vmap_area</span>(size, align, start, end, node, gfp_mask);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>IS_ERR</span>(va)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>kfree</span>(area);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>insert_vmalloc_vm</span>(area, va, flags, caller);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> area;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p><code>__get_vm_area_node()</code> 主要用于创建新的描述符，并把该描述符插入到相关的内核数据结构中，具体细节比较复杂，我不准备看了。</p><h3 id=__vmalloc_area_node><code>__vmalloc_area_node()</code><a hidden class=anchor aria-hidden=true href=#__vmalloc_area_node>#</a></h3><p><code>mm/vmalloc.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">48
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">49
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">50
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">51
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>__vmalloc_area_node</span>(<span style=color:#66d9ef>struct</span> vm_struct <span style=color:#f92672>*</span>area, <span style=color:#66d9ef>gfp_t</span> gfp_mask,
+</span></span><span style=display:flex><span>                                 <span style=color:#66d9ef>pgprot_t</span> prot, <span style=color:#66d9ef>int</span> node, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>caller)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>**</span>pages;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> nr_pages, array_size, i;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>gfp_t</span> nested_gfp <span style=color:#f92672>=</span> (gfp_mask <span style=color:#f92672>&amp;</span> GFP_RECLAIM_MASK) <span style=color:#f92672>|</span> __GFP_ZERO;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    nr_pages <span style=color:#f92672>=</span> (area<span style=color:#f92672>-&gt;</span>size <span style=color:#f92672>-</span> PAGE_SIZE) <span style=color:#f92672>&gt;&gt;</span> PAGE_SHIFT;
+</span></span><span style=display:flex><span>    array_size <span style=color:#f92672>=</span> (nr_pages <span style=color:#f92672>*</span> <span style=color:#66d9ef>sizeof</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    area<span style=color:#f92672>-&gt;</span>nr_pages <span style=color:#f92672>=</span> nr_pages;
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Please note that the recursion is strictly bounded. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (array_size <span style=color:#f92672>&gt;</span> PAGE_SIZE) {
+</span></span><span style=display:flex><span>        pages <span style=color:#f92672>=</span> <span style=color:#a6e22e>__vmalloc_node</span>(array_size, <span style=color:#ae81ff>1</span>, nested_gfp<span style=color:#f92672>|</span>__GFP_HIGHMEM,
+</span></span><span style=display:flex><span>                PAGE_KERNEL, node, caller);
+</span></span><span style=display:flex><span>        area<span style=color:#f92672>-&gt;</span>flags <span style=color:#f92672>|=</span> VM_VPAGES;
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        pages <span style=color:#f92672>=</span> <span style=color:#a6e22e>kmalloc_node</span>(array_size, nested_gfp, node);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    area<span style=color:#f92672>-&gt;</span>pages <span style=color:#f92672>=</span> pages;
+</span></span><span style=display:flex><span>    area<span style=color:#f92672>-&gt;</span>caller <span style=color:#f92672>=</span> caller;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>area<span style=color:#f92672>-&gt;</span>pages) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>remove_vm_area</span>(area<span style=color:#f92672>-&gt;</span>addr);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>kfree</span>(area);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> (i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; i <span style=color:#f92672>&lt;</span> area<span style=color:#f92672>-&gt;</span>nr_pages; i<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (node <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>            page <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_page</span>(gfp_mask);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>else</span>
+</span></span><span style=display:flex><span>            page <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_pages_node</span>(node, gfp_mask, <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>unlikely</span>(<span style=color:#f92672>!</span>page)) {
+</span></span><span style=display:flex><span>            <span style=color:#75715e>/* Successfully allocated i pages, free them in __vunmap() */</span>
+</span></span><span style=display:flex><span>            area<span style=color:#f92672>-&gt;</span>nr_pages <span style=color:#f92672>=</span> i;
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>goto</span> fail;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        area<span style=color:#f92672>-&gt;</span>pages[i] <span style=color:#f92672>=</span> page;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>map_vm_area</span>(area, prot, <span style=color:#f92672>&amp;</span>pages))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> fail;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> area<span style=color:#f92672>-&gt;</span>addr;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>fail:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>vfree</span>(area<span style=color:#f92672>-&gt;</span>addr);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></td></tr></table></div></div><p><code>__vmalloc_area_node()</code> 和 <code>__vmalloc_node()</code> 互相递归，当分配的页描述符指针数组小于一页时，<code>__vmalloc_area_node()</code> 调用 <code>kmalloc_node()</code> 来分配（<code>kmalloc_node()</code> 会通过 <code>kmalloc()</code> 分配内存），结束递归。</p><p>页描述符指针数组的元素指向 <code>alloc_pages_node()</code> 分配的页（<code>alloc_page()</code> 最终也会调用 <code>alloc_pages_node()</code>，见<a href=/posts/kernel/memory/continuous#%E8%AF%B7%E6%B1%82%E9%A1%B5%E6%A1%86>请求页框</a>），完成填充。</p><p>完成分配后，通过 <code>map_vm_area()</code> 来修改页表项，这个函数的细节比较复杂，暂时不准备去看了。</p><h3 id=kmemleak_alloc>kmemleak_alloc()<a hidden class=anchor aria-hidden=true href=#kmemleak_alloc>#</a></h3><p><code>kmemleak_alloc()</code> 是 kmemleak 的 API，kmemleak 主要用于检测内存泄漏，相关内容不属于本系列学习笔记的范畴。</p><h2 id=释放非连续内存区>释放非连续内存区<a hidden class=anchor aria-hidden=true href=#释放非连续内存区>#</a></h2><p>释放非连续内存区使用 <code>vfree()</code> 函数。</p><p><code>mm/vmalloc.c</code>：</p><div class=highlight><div style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">10
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">11
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">12
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">13
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">14
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">15
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">16
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">17
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">18
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">19
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">20
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">21
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">22
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">23
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">24
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">25
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">26
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">27
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">28
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">29
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">30
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">31
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">32
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">33
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">34
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">35
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">36
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">37
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">38
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">39
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">40
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">41
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">42
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">43
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">44
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">45
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">46
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">47
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">48
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">49
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">50
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">51
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">52
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">53
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">54
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">55
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">56
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">57
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">58
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">59
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">60
+</span><span style="white-space:pre;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">61
+</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__vunmap</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>addr, <span style=color:#66d9ef>int</span> deallocate_pages)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> vm_struct <span style=color:#f92672>*</span>area;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>addr)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> ((PAGE_SIZE<span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>) <span style=color:#f92672>&amp;</span> (<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)addr) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>WARN</span>(<span style=color:#ae81ff>1</span>, KERN_ERR <span style=color:#e6db74>&#34;Trying to vfree() bad address (%p)</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>, addr);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    area <span style=color:#f92672>=</span> <span style=color:#a6e22e>remove_vm_area</span>(addr);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>unlikely</span>(<span style=color:#f92672>!</span>area)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>WARN</span>(<span style=color:#ae81ff>1</span>, KERN_ERR <span style=color:#e6db74>&#34;Trying to vfree() nonexistent vm area (%p)</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>                addr);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>debug_check_no_locks_freed</span>(addr, area<span style=color:#f92672>-&gt;</span>size);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>debug_check_no_obj_freed</span>(addr, area<span style=color:#f92672>-&gt;</span>size);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (deallocate_pages) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> i;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> (i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; i <span style=color:#f92672>&lt;</span> area<span style=color:#f92672>-&gt;</span>nr_pages; i<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page <span style=color:#f92672>=</span> area<span style=color:#f92672>-&gt;</span>pages[i];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#f92672>!</span>page);
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>__free_page</span>(page);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (area<span style=color:#f92672>-&gt;</span>flags <span style=color:#f92672>&amp;</span> VM_VPAGES)
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>vfree</span>(area<span style=color:#f92672>-&gt;</span>pages);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>else</span>
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>kfree</span>(area<span style=color:#f92672>-&gt;</span>pages);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kfree</span>(area);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  vfree  -    release memory allocated by vmalloc()
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @addr:      memory base address
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Free the virtually continuous memory area starting at @addr, as
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  obtained from vmalloc(), vmalloc_32() or __vmalloc(). If @addr is
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  NULL, no operation is performed.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Must not be called in interrupt context.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>vfree</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>addr)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>in_interrupt</span>());
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kmemleak_free</span>(addr);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__vunmap</span>(addr, <span style=color:#ae81ff>1</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(vfree);
+</span></span></code></pre></td></tr></table></div></div><p><code>__vunmap()</code> 主要进行如下操作（进行和分配顺序相反的操作）：</p><ol><li>通过 <code>remove_vm_area()</code> 清楚相应的页表项。</li><li>通过 <code>__free_page()</code> 释放分配的页。</li><li>通过 <code>kfree()</code> 释放描述符。</li></ol><p>但这里面的细节比较复杂，我暂时不准备看了。</p></div><footer class=post-footer><ul class=post-tags><li><a href=https://freeflyingsheep.github.io/tags/linux-%E5%86%85%E6%A0%B8/>Linux 内核</a></li><li><a href=https://freeflyingsheep.github.io/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/>内存管理</a></li><li><a href=https://freeflyingsheep.github.io/tags/%E9%9D%9E%E8%BF%9E%E7%BB%AD%E9%A1%B5%E6%A1%86%E7%9A%84%E7%AE%A1%E7%90%86/>非连续页框的管理</a></li></ul><nav class=paginav><a class=prev href=https://freeflyingsheep.github.io/posts/kernel/data-structure/radix-tree/><span class=title>« 上一页</span><br><span>内核基数树</span></a>
+<a class=next href=https://freeflyingsheep.github.io/posts/kernel/memory/initialization/><span class=title>下一页 »</span><br><span>内存管理初始化</span></a></nav></footer></article></main><footer class=footer><span>&copy; 2023 <a href=https://freeflyingsheep.github.io/>FreeFlyingSheep 的小站</a></span>
+<span>Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+        <a href=https://git.io/hugopapermod rel=noopener target=_blank>PaperMod</a></span></footer><a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentcolor"><path d="M12 6H0l6-6z"/></svg></a><script>let menu=document.getElementById("menu");menu&&(menu.scrollLeft=localStorage.getItem("menu-scroll-position"),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}),document.querySelectorAll('a[href^="#"]').forEach(e=>{e.addEventListener("click",function(e){e.preventDefault();var t=this.getAttribute("href").substr(1);window.matchMedia("(prefers-reduced-motion: reduce)").matches?document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(t)}']`).scrollIntoView({behavior:"smooth"}),t==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${t}`)})})</script><script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script><script>document.getElementById("theme-toggle").addEventListener("click",()=>{document.body.className.includes("dark")?(document.body.classList.remove("dark"),localStorage.setItem("pref-theme","light")):(document.body.classList.add("dark"),localStorage.setItem("pref-theme","dark"))})</script><script>document.querySelectorAll("pre > code").forEach(e=>{const n=e.parentNode.parentNode,t=document.createElement("button");t.classList.add("copy-code"),t.innerText="复制";function s(){t.innerText="已复制！",setTimeout(()=>{t.innerText="复制"},2e3)}t.addEventListener("click",t=>{if("clipboard"in navigator){navigator.clipboard.writeText(e.textContent),s();return}const n=document.createRange();n.selectNodeContents(e);const o=window.getSelection();o.removeAllRanges(),o.addRange(n);try{document.execCommand("copy"),s()}catch{}o.removeRange(n)}),n.classList.contains("highlight")?n.appendChild(t):n.parentNode.firstChild==n||(e.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName=="TABLE"?e.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(t):e.parentNode.appendChild(t))})</script></body></html>

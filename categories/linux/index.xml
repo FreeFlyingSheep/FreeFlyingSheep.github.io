@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Linux on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/categories/linux/</link>
+    <description>Recent content in Linux on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Tue, 20 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/categories/linux/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>安装 Arch Linux</title>
+      <link>https://freeflyingsheep.github.io/posts/linux/arch/</link>
+      <pubDate>Tue, 20 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/linux/arch/</guid>
+      <description>&lt;p&gt;根据 &lt;a href=&#34;https://wiki.archlinux.org/&#34;&gt;Arch Linux Wiki&lt;/a&gt; 整理 Arch Linux 的安装。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>安装 WSL</title>
+      <link>https://freeflyingsheep.github.io/posts/linux/wsl/</link>
+      <pubDate>Mon, 21 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/linux/wsl/</guid>
+      <description>&lt;p&gt;根据微软官方文档 &lt;a href=&#34;https://docs.microsoft.com/en-us/windows/wsl/install-win10&#34;&gt;Windows Subsystem for Linux Installation Guide for Windows 10&lt;/a&gt; 整理。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>构建 LFS 系统</title>
+      <link>https://freeflyingsheep.github.io/posts/linux/lfs/</link>
+      <pubDate>Mon, 21 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/linux/lfs/</guid>
+      <description>&lt;p&gt;根据《&lt;a href=&#34;https://bf.mengyan1223.wang/lfs/zh_CN/10.0-systemd/&#34;&gt;Linux From Scratch 版本 20200901-systemd，中文翻译版&lt;/a&gt;》构建 &lt;code&gt;LFS systemd 10.0&lt;/code&gt; 的归纳总结。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

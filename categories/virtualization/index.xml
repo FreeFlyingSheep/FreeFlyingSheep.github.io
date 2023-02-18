@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Virtualization on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/categories/virtualization/</link>
+    <description>Recent content in Virtualization on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Wed, 09 Jun 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/categories/virtualization/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>KVM 简介</title>
+      <link>https://freeflyingsheep.github.io/posts/virtualization/kvm/</link>
+      <pubDate>Wed, 09 Jun 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/virtualization/kvm/</guid>
+      <description>&lt;p&gt;简单介绍 Linux 内核的 KVM 模块，以 MIPS 体系结构为例，内核源码版本为 5.10.42。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>QEMU 简介</title>
+      <link>https://freeflyingsheep.github.io/posts/virtualization/qemu/</link>
+      <pubDate>Tue, 08 Jun 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/virtualization/qemu/</guid>
+      <description>&lt;p&gt;根据 &lt;a href=&#34;https://qemu-project.gitlab.io/qemu/index.html&#34;&gt;QEMU 官方文档&lt;/a&gt; 和 &lt;a href=&#34;https://lists.gnu.org/archive/html/qemu-devel/2011-04/pdfhC5rVdz7U8.pdf&#34;&gt;Qemu Detailed Study&lt;/a&gt; 整理。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

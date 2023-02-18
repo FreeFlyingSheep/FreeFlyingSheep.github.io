@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Linux 内核学习笔记 on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/series/linux-%E5%86%85%E6%A0%B8%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/</link>
+    <description>Recent content in Linux 内核学习笔记 on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Mon, 17 May 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/series/linux-%E5%86%85%E6%A0%B8%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>bootmem 分配器</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/bootmem/</link>
+      <pubDate>Mon, 17 May 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/bootmem/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍 bootmem 分配器。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内核基数树</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/data-structure/radix-tree/</link>
+      <pubDate>Wed, 28 Apr 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/data-structure/radix-tree/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核基数树。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>非连续页框的管理</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/uncontinuous/</link>
+      <pubDate>Mon, 26 Apr 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/uncontinuous/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍非连续页框的管理。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内存管理初始化</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/initialization/</link>
+      <pubDate>Mon, 26 Apr 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/initialization/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍内存管理初始化。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内存映射</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/map/</link>
+      <pubDate>Mon, 26 Apr 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/map/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍内存映射。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内核红黑树</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/data-structure/rbtree/</link>
+      <pubDate>Wed, 04 Nov 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/data-structure/rbtree/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核红黑树。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内存寻址</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/address/</link>
+      <pubDate>Thu, 29 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/address/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍内存寻址。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内核位图</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/data-structure/bitmap/</link>
+      <pubDate>Wed, 28 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/data-structure/bitmap/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核位图。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>TODO 列表</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/todo/</link>
+      <pubDate>Tue, 27 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/todo/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，TODO 列表，慢慢填坑。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内存模型</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/model/</link>
+      <pubDate>Tue, 27 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/model/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍内存模型。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内核开发相关知识</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/develop/develop/</link>
+      <pubDate>Thu, 22 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/develop/develop/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核开发部分，简单介绍 Linux 内核的开发结构的相关知识，以提供参考资料为主。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>体系结构相关知识</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/develop/arch/</link>
+      <pubDate>Wed, 21 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/develop/arch/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核开发部分，简单介绍 Linux 内核体系结构和可移植性相关的内容。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内核编译和调试</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/develop/build/</link>
+      <pubDate>Mon, 19 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/develop/build/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核开发部分，简单介绍 Linux 内核编译步骤。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内核散列表</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/data-structure/hlist/</link>
+      <pubDate>Thu, 15 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/data-structure/hlist/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核散列表。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Linux 内核常见函数/宏</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/introduction/common/</link>
+      <pubDate>Wed, 14 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/introduction/common/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核简介部分，简单介绍 Linux 内核常见的函数及其作用。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内核队列</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/data-structure/kfifo/</link>
+      <pubDate>Sat, 10 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/data-structure/kfifo/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核队列。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>GCC 扩展语法</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/data-structure/expansion/</link>
+      <pubDate>Mon, 28 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/data-structure/expansion/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，GCC 扩展语法和内核数据结构部分，简单介绍 GCC 扩展语法。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内核链表</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/data-structure/list/</link>
+      <pubDate>Mon, 28 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/data-structure/list/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核链表。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Linux 内核基础</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/introduction/basis/</link>
+      <pubDate>Sun, 27 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/introduction/basis/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内核简介部分，简单介绍 Linux 内核学习的前置知识，以及 Linux 内核的基本概念。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Linux 内核学习笔记</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/kernel/</link>
+      <pubDate>Fri, 25 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/kernel/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，整理《深入理解 Linux 内核》（第三版，以下简称 ULK3）、《Linux 内核设计与实现》（原书第 3 版，以下简称 LKD3）和《深入 Linux 内核架构》（以下简称 PLKA）相关章节的联系以及个人理解。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>内存管理补充</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/supplement/</link>
+      <pubDate>Mon, 27 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/supplement/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，内存管理的一些补充说明。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>连续页框的管理</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/continuous/</link>
+      <pubDate>Fri, 24 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/continuous/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍连续页框的管理。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>slab 分配器</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/slab/</link>
+      <pubDate>Thu, 23 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/slab/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍 slab 分配器。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>per-CPU 高速缓存</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/per-cpu/</link>
+      <pubDate>Wed, 22 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/per-cpu/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍 per-CPU 高速缓存。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>伙伴系统</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/memory/buddy-system/</link>
+      <pubDate>Tue, 21 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/memory/buddy-system/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://freeflyingsheep.github.io/posts/kernel/kernel&#34;&gt;Linux 内核学习笔记系列&lt;/a&gt;，内存管理部分，简单介绍伙伴系统。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

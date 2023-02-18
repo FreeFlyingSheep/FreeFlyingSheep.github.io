@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Arch Linux on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/arch-linux/</link>
+    <description>Recent content in Arch Linux on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Tue, 20 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/arch-linux/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>安装 Arch Linux</title>
+      <link>https://freeflyingsheep.github.io/posts/linux/arch/</link>
+      <pubDate>Tue, 20 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/linux/arch/</guid>
+      <description>&lt;p&gt;根据 &lt;a href=&#34;https://wiki.archlinux.org/&#34;&gt;Arch Linux Wiki&lt;/a&gt; 整理 Arch Linux 的安装。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

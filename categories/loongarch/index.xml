@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>LoongArch on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/categories/loongarch/</link>
+    <description>Recent content in LoongArch on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Tue, 26 Jul 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/categories/loongarch/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>在 LoongArch 上开发</title>
+      <link>https://freeflyingsheep.github.io/posts/loongarch/develop/</link>
+      <pubDate>Tue, 26 Jul 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/loongarch/develop/</guid>
+      <description>&lt;p&gt;简单介绍 LoongArch 和在 LoongArch 上开发的注意事项。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>LoongArch 汇编</title>
+      <link>https://freeflyingsheep.github.io/posts/loongarch/assembly/</link>
+      <pubDate>Tue, 19 Jul 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/loongarch/assembly/</guid>
+      <description>&lt;p&gt;简单介绍 LoongArch 的汇编指令和一些 psABI (Processor-Specific Application Binary Interface) 规范，相关文档见&lt;a href=&#34;https://github.com/loongson/LoongArch-Documentation&#34;&gt;文档仓库&lt;/a&gt;。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

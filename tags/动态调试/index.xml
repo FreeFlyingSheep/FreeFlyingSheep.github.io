@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>动态调试 on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/%E5%8A%A8%E6%80%81%E8%B0%83%E8%AF%95/</link>
+    <description>Recent content in 动态调试 on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Thu, 15 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/%E5%8A%A8%E6%80%81%E8%B0%83%E8%AF%95/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>动态调试</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/miscellaneous/dynamic-debug/</link>
+      <pubDate>Thu, 15 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/miscellaneous/dynamic-debug/</guid>
+      <description>&lt;p&gt;根据 Linux Kernel 在线文档 &lt;a href=&#34;https://www.kernel.org/doc/html/latest/admin-guide/dynamic-debug-howto.html&#34;&gt;Dynamic debug&lt;/a&gt; 整理。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

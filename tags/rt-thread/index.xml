@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>RT-Thread on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/rt-thread/</link>
+    <description>Recent content in RT-Thread on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Sat, 18 Feb 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/rt-thread/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>移植 RT-Thread 到 LoongArch64</title>
+      <link>https://freeflyingsheep.github.io/posts/rt-thread/loongarch64/</link>
+      <pubDate>Sat, 18 Feb 2023 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/rt-thread/loongarch64/</guid>
+      <description>&lt;p&gt;简单介绍把 RT-Thread 移植到 LoongArch64 的过程。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>移植 RT-Thread 到 LoongArch32</title>
+      <link>https://freeflyingsheep.github.io/posts/rt-thread/loongarch32/</link>
+      <pubDate>Sat, 14 Jan 2023 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/rt-thread/loongarch32/</guid>
+      <description>&lt;p&gt;简单介绍把 RT-Thread 移植到 LoongArch32 的过程。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

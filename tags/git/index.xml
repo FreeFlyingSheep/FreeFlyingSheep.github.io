@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Git on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/git/</link>
+    <description>Recent content in Git on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Tue, 11 Aug 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/git/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Git 打补丁</title>
+      <link>https://freeflyingsheep.github.io/posts/git/patch/</link>
+      <pubDate>Tue, 11 Aug 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/git/patch/</guid>
+      <description>&lt;p&gt;整理使用 Git 打补丁的方法，补充一些常用指令，并给出一个 Git 命令的综合应用实例。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Git 常用命令</title>
+      <link>https://freeflyingsheep.github.io/posts/git/command/</link>
+      <pubDate>Thu, 16 Jul 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/git/command/</guid>
+      <description>&lt;p&gt;根据 &lt;em&gt;&lt;a href=&#34;https://git-scm.com/book/zh/v2&#34;&gt;Pro Git (2nd Edition)&lt;/a&gt;&lt;/em&gt;（中文版）整理。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

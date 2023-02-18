@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Github on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/github/</link>
+    <description>Recent content in Github on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Wed, 12 May 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/github/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Github 模板</title>
+      <link>https://freeflyingsheep.github.io/posts/tips/github/</link>
+      <pubDate>Wed, 12 May 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/tips/github/</guid>
+      <description>&lt;p&gt;根据 &lt;a href=&#34;https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests&#34;&gt;Github Issue &amp;amp; PR templates&lt;/a&gt; 相关文档整理。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

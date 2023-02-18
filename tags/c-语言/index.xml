@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>C 语言 on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/c-%E8%AF%AD%E8%A8%80/</link>
+    <description>Recent content in C 语言 on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Sat, 10 Oct 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/c-%E8%AF%AD%E8%A8%80/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>预定义宏</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/miscellaneous/predefined-macros/</link>
+      <pubDate>Sat, 10 Oct 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/miscellaneous/predefined-macros/</guid>
+      <description>&lt;p&gt;根据 GCC CPP 在线文档的 &lt;a href=&#34;https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html#Predefined-Macros&#34;&gt;Predefined Macros&lt;/a&gt; 章节整理。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>宏的陷阱和使用技巧</title>
+      <link>https://freeflyingsheep.github.io/posts/kernel/miscellaneous/macros-pitfalls/</link>
+      <pubDate>Thu, 10 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/kernel/miscellaneous/macros-pitfalls/</guid>
+      <description>&lt;p&gt;根据 GCC CPP 在线文档的 &lt;a href=&#34;https://gcc.gnu.org/onlinedocs/cpp/Macro-Pitfalls.html#Macro-Pitfalls&#34;&gt;Macro Pitfalls&lt;/a&gt; 章节整理。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

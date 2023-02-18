@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Linux on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/linux/</link>
+    <description>Recent content in Linux on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Mon, 21 Sep 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/linux/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>查看 Linux 版本</title>
+      <link>https://freeflyingsheep.github.io/posts/tips/linux-version/</link>
+      <pubDate>Mon, 21 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/tips/linux-version/</guid>
+      <description>&lt;p&gt;查看 Linux 发行版和内核版本的多种方式。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

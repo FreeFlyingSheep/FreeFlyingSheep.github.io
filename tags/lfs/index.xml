@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>LFS on FreeFlyingSheep 的小站</title>
+    <link>https://freeflyingsheep.github.io/tags/lfs/</link>
+    <description>Recent content in LFS on FreeFlyingSheep 的小站</description>
+    <image>
+      <url>https://freeflyingsheep.github.io/papermod-cover.png</url>
+      <link>https://freeflyingsheep.github.io/papermod-cover.png</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Mon, 21 Sep 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://freeflyingsheep.github.io/tags/lfs/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>构建 LFS 系统</title>
+      <link>https://freeflyingsheep.github.io/posts/linux/lfs/</link>
+      <pubDate>Mon, 21 Sep 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://freeflyingsheep.github.io/posts/linux/lfs/</guid>
+      <description>&lt;p&gt;根据《&lt;a href=&#34;https://bf.mengyan1223.wang/lfs/zh_CN/10.0-systemd/&#34;&gt;Linux From Scratch 版本 20200901-systemd，中文翻译版&lt;/a&gt;》构建 &lt;code&gt;LFS systemd 10.0&lt;/code&gt; 的归纳总结。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>
