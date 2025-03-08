@@ -1,6 +1,6 @@
 # section information
 section:
-  name: Publications
+  name: 发表论文
   id: publications
   enable: false
   weight: 6

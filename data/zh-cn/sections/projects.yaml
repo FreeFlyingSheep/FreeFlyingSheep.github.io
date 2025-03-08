@@ -1,6 +1,6 @@
 # section information
 section:
-  name: Projects
+  name: 参与项目
   id: projects
   enable: true
   weight: 5
@@ -10,11 +10,11 @@ section:
 
 # filter buttons
 buttons:
-- name: All
+- name: 全部
   filter: "all"
-- name: Professional
+- name: 专业
   filter: "professional"
-- name: Hobby
+- name: 兴趣爱好
   filter: "hobby"
 
 # your projects
@@ -65,59 +65,59 @@ projects:
 - name: Linux Kernel
   role: Contributor
   repo: https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/
-  summary: Linux kernel is a free and open source operating system kernel.
+  summary: Linux 内核是一个自由且开源的操作系统内核。
   tags: ["linux","professional"]
 
 - name: Valgrind for LoongArch64/Linux
   role: Developer
   repo: https://github.com/FreeFlyingSheep/valgrind-loongarch64
-  summary: Valgrind with support for the LoongArch64/Linux platform. Valgrind is an instrumentation framework for building dynamic analysis tools.
+  summary: LoongArch64/Linux 平台支持的 Valgrind。 Valgrind 是一个构建动态分析工具的注入框架。
   tags: ["valgrind","linux","loongarch","professional"]
 
 - name: klibc
   role: Contributor
   repo: https://web.git.kernel.org/pub/scm/libs/klibc/klibc.git/
-  summary: klibc is a minimalistic subset of the standard C library.
+  summary: klibc 是一个标准 C 库的最小子集。
   tags: ["klibc","linux","professional"]
 
 - name: RT-Thread for LoongArch
   role: Developer
   repo: https://github.com/FreeFlyingSheep/rt-thread
-  summary: RT-Thread with LoongArch support. RT-Thread is an open source IoT Real-Time Operating System (RTOS).
+  summary: 添加 LoongArch 支持的 RT-Thread。RT-Thread 是一个开源的 IoT 实时操作系统（Real-Time Operating System，RTOS）。
   tags: ["rtthread","loongarch","professional"]
 
 - name: Kcov
   role: Contributor
   repo: https://github.com/SimonKagstrom/kcov
-  summary: Code coverage tool for compiled programs, Python and Bash which uses debugging information to collect and report data without special compilation options.
+  summary: 用于编译程序、Python 和 Bash 的代码覆盖工具，它使用调试信息来收集和报告数据，无需特殊的编译选项。
   tags: ["kcov","loongarch","professional"]
 
 - name: LoongArch Assembly
   role: Owner
   repo: https://github.com/FreeFlyingSheep/loongarch-assembly
-  summary: A vscode extension that provides language support for LoongArch assembly language.
+  summary: 一个提供 LoongArch 汇编语言支持的 vscode 插件。
   tags: ["vscode","loongarch","hobby"]
 
 - name: Devstack for Fedora MIPS
   role: Developer
   repo: https://github.com/FreeFlyingSheep/devstack
-  summary: System for quickly installing an OpenStack cloud from upstream git for testing and development.
+  summary: 从上游 git 快速安装 OpenStack 云以用来测试开发的系统。
   tags: ["openstack","mips","professional"]
 
 - name: LFS
   role: Owner
   repo: https://github.com/FreeFlyingSheep/lfs
-  summary: An automatic build script for Linux From Scratch (LFS).
+  summary: 一个 LFS（Linux From Scratch）的自动化构建脚本。
   tags: ["lfs","linux","hobby"]
 
 - name: Newlib for LoongArch
   role: Developer
   repo: https://github.com/FreeFlyingSheep/newlib
-  summary: Newlib is a C library intended for use on embedded systems.
+  summary: Newlib 是一个供嵌入式系统使用的 C 库。
   tags: ["newlib","loongarch","professional"]
 
 - name: LoongArch Documentation
   role: Contributor
   repo: https://github.com/loongson/LoongArch-Documentation
-  summary: The documentation for LoongArch.
+  summary: LoongArch 文档。
   tags: ["documentation","loongarch","professional"]

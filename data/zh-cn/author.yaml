@@ -1,8 +1,8 @@
 # some information about you
-name: "Feiyang Chen"
+name: "陈飞扬"
 nickname: "FreeFlyingSheep"
 # greeting message before your name. it will default to "Hi! I am" if not provided
-greeting: "Hi, I am"
+greeting: "你好，我是"
 image: "images/author/octocat.png"
 # give your some contact information. they will be used in the footer
 contactInfo:
@@ -12,6 +12,6 @@ contactInfo:
 
 # some summary about what you do
 summary:
-  - I am a Developer
-  - I love diving into new topics
-  - I work on open-source projects
+  - 我是一个开发者
+  - 我热衷于探索新事物
+  - 我致力于开发开源项目
