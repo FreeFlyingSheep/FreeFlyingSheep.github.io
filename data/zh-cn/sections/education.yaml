@@ -1,6 +1,6 @@
 # section information
 section:
-  name: Education
+  name: 教育经历
   id: education
   template: sections/education.html # Use "sections/education-alt.html for alternate template.
   enable: true
@@ -93,10 +93,10 @@ degrees:
 #   - Vestibulum consectetur lorem justo, at laoreet lorem feugiat et.
 #   - Duis sed massa feugiat, ornare justo et, aliquam est.
 #   - Pellentesque ut fringilla magna.
-- name: Master of Computer Science
+- name: 计算机科学硕士
   icon: fa-university
   timeframe: 2024-2025
   institution:
-    name: The University of Sydney
+    name: 悉尼大学
     url: "https://www.sydney.edu.au"
     logo: /images/sections/education/usyd.svg

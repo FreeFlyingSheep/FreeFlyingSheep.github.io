@@ -1,6 +1,6 @@
 # section information
 section:
-  name: Experiences
+  name: 工作经历
   id: experiences
   enable: true
   weight: 3
@@ -73,33 +73,33 @@ experiences:
 #     - Count me as an intern.
 
 - company:
-    name: Loongson Technology Corporation Limited
-    url: "https://www.loongson.cn/EN"
-    location: Suzhou, Jiangsu, China
+    name: 龙芯中科技术股份有限公司
+    url: "https://www.loongson.cn"
+    location: 江苏苏州
     logo: /images/sections/experiences/loongson.jpg
     # Can optionally show a different logo for dark theme
     # darkLogo: /images/sections/experiences/company2.jpg
-    overview: Loongson Technology Corporation Limited designs general-purpose processor, primarily known for its Loongson processors.
+    overview: 龙芯中科技术股份有限公司是一家设计通用处理器的公司，主要以龙芯处理器而闻名。
   positions:
   - designation: Software Engineer
     start: Dec 2020
     end: Aug 2023
     responsibilities:
-    - Developed the Linux kernel and submitted patches to upstream, enhancing system functionality.
-    - Ported critical system software, including klibc and Valgrind, to LoongArch architecture, ensuring compatibility.
-    - Maintained and streamlined GitHub repositories, managing CI/CD pipelines to improve team collaboration and deployment efficiency.
+    - 开发 Linux 内核并提交补丁到上游，完善系统功能。
+    - 移植关键的底层软件（包括 klibc 和 Valgrind）到 LoongArch 架构，完善软件生态。
+    - 维护 Github 仓库，管理 CI/CD，促进团队协作，提高开发效率。
 
 - company:
-    name: Jiangsu Lemote Tech Co., Ltd
-    location: Suzhou, Jiangsu, China
+    name: 江苏航天龙梦信息技术有限公司
+    location: 江苏苏州
     logo: /images/sections/experiences/lemote.jpg
     # Can optionally show a different logo for dark theme
     # darkLogo: /images/sections/experiences/company3.jpg
-    overview: Jiangsu Lemote Tech Co., Ltd is a company that provides hardware and software products, services, and projects.
+    overview: 江苏航天龙梦信息技术有限公司是一家提供硬件和软件产品、服务和项目的公司。
   positions:
   - designation: Software Engineer Intern
     start: Dec 2020
     end: Jun 2020
     responsibilities:
-    - Developed the Linux kernel, improving system stability.
-    - Ported OpenStack to Fedora MIPS, expanding support for a broader range of hardware platforms.
+    - 开发 Linux 内核，提高系统稳定性。
+    - 移植 OpenStack 到 Fedora MIPS，为相关硬件平台提供了支持。

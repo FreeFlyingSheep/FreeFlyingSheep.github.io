@@ -1,6 +1,6 @@
 # section information
 section:
-  name: Skills
+  name: 技能
   id: skills
   enable: true
   weight: 2
@@ -11,13 +11,13 @@ section:
 
 # filter buttons
 buttons:
-- name: All
+- name: 全部
   filter: "all"
-- name: Language
+- name: 语言
   filter: "language"
-- name: Tool
+- name: 工具
   filter: "tool"
-- name: Platform
+- name: 平台
   filter: "platform"
 
 # Your Skills.
@@ -70,30 +70,30 @@ skills:
 
 - name: C
   logo: /images/sections/skills/c.svg
-  summary: "Proficient in developing low-level system applications."
+  summary: "掌握：能开发底层软件。"
   categories: ["language"]
 
 - name: Python
   logo: /images/sections/skills/python.svg
-  summary: "Experienced in scripting, automation, and problem-solving."
+  summary: "熟练：能写脚本、自动化工具来解决问题。"
   categories: ["language"]
 
 - name: Git
   logo: /images/sections/skills/git.svg
-  summary: "Skilled in version control and collaborative development."
+  summary: "掌握：能进行版本控制以及团队协作。"
   categories: ["tool"]
 
 - name: Docker
   logo: /images/sections/skills/docker.svg
-  summary: "Capable of using Docker for basic containerization and image management."
+  summary: "熟悉：能部署应用和管理容器、镜像。"
   categories: ["tool"]
 
 - name: Linux
   logo: /images/sections/skills/linux.svg
-  summary: "Comfortable with system administration, scripting, and development."
+  summary: "熟练：能使用常用命令、编写脚本，并开发应用。"
   categories: ["platform"]
 
 - name: AWS
   logo: /images/sections/skills/aws.svg
-  summary: "Familiar with cloud computing and infrastructure management."
+  summary: "熟悉：能使用云服务搭建、部署解决方案。"
   categories: ["platform"]

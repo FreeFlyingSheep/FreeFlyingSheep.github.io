@@ -1,11 +1,11 @@
 # Copyright Notice
-copyright: © 2023 Copyright.
+copyright: © 2023 版权所有。
 
 # A disclaimer notice for the footer. Make sure you have set "params.footer.disclaimer.enable: true" in your `config.yaml` file.
-disclaimer: "This theme is under MIT license. This blog is licensed under CC BY-NC 4.0."
+disclaimer: "本主题使用 MIT 许可证。本博客使用署名—非商业性使用 4.0 协议国际版（CC BY-NC 4.0）许可证。"
 
 # Meta description for your site.  This will help the search engines to find your site.
-description: Personal blog of Feiyang Chen.
+description: 陈飞扬的个人博客。
 
 # specify the list of custom menus that you want to show in the top navbar.
 # they will be separated by a divider from the main menus.
@@ -20,8 +20,8 @@ customMenus:
 
 # Specify OpenGraph Headers
 openGraph:
-  title: FreeFlyingSheep's Blog
+  title: FreeFlyingSheep 的博客
   type: website
-  description: Personal blog of Feiyang Chen.
+  description: 陈飞扬的个人博客。
   image: images/author/octocat.png
   url: https://FreeFlyingSheep.github.io

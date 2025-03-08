@@ -1,6 +1,6 @@
 # section information
 section:
-  name: About
+  name: 关于
   id: about
   enable: true
   weight: 1
@@ -8,10 +8,10 @@ section:
   template: sections/about.html
 
 # your designation
-designation: Student
+designation: 学生
 # your company information
 company:
-  name: The University of Sydney
+  name: 悉尼大学
   url: "https://www.sydney.edu.au"
 
 # your resume. this file path should be relative to you "static" directory
@@ -19,7 +19,7 @@ company:
 # resume: "files/resume.pdf"
 
 # a summary about you
-summary: "I am a student at USYD with a background as a passionate software engineer. I have three years of experience in software engineering and have contributed to several open-source projects. I enjoy exploring new topics and working on fun projects in my free time."
+summary: "我是一名悉尼大学的学生，也是一名充满热情的软件工程师。我有三年的软件工程经验，并为多个开源项目做出了贡献。我喜欢在空闲时间探索新事物并从事有趣的项目。"
 
 # your social links
 # give as many as you want. use font-awesome for the icons.
@@ -38,7 +38,7 @@ socialLinks:
 
 - name: LinkedIn
   icon: "fab fa-linkedin"
-  url: "https://www.linkedin.com/in/feiyang-chen-27b653318/"
+  url: "linkedin.com/in/freeflyingsheep"
 
 # - name: Twitter
 #   icon: "fab fa-twitter"
@@ -60,7 +60,7 @@ socialLinks:
 # You can put custom buttons to link your relevant resources.
 # For example, you can put link for your resume.
 resourceLinks:
-- title: "My Resume"
+- title: "我的简历"
   url: "files/resume.pdf"
 
 # Show your badges

@@ -1,6 +1,6 @@
 # section information
 section:
-  name: Achievements
+  name: 成就
   id: achievements
   enable: false
   weight: 10
