@@ -3,3 +3,8 @@ node_modules/*
 public/*
 .vscode/
 .DS_Store
+assets/jsconfig.json
+go.mod
+go.sum
+package-lock.json
+package.json
