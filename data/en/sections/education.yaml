@@ -100,3 +100,11 @@ degrees:
     name: The University of Sydney
     url: "https://www.sydney.edu.au"
     logo: /images/sections/education/usyd.svg
+
+- name: Bachelor of Computer Science and Technology
+  icon: fa-university
+  timeframe: 2016-2020
+  institution:
+    name: Suzhou University of Technology
+    url: "https://www.szut.edu.cn/"
+    logo: /images/sections/education/szut.png

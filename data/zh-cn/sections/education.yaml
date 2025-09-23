@@ -100,3 +100,11 @@ degrees:
     name: 悉尼大学
     url: "https://www.sydney.edu.au"
     logo: /images/sections/education/usyd.svg
+
+- name: 计算机科学与技术学士
+  icon: fa-university
+  timeframe: 2016-2020
+  institution:
+    name: 苏州工学院
+    url: "https://www.szut.edu.cn/"
+    logo: /images/sections/education/szut.png
