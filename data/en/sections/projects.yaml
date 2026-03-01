@@ -121,3 +121,9 @@ projects:
   repo: https://github.com/loongson/LoongArch-Documentation
   summary: The documentation for LoongArch.
   tags: ["documentation","loongarch","professional"]
+
+- name: Stock Analysis
+  role: Owner
+  repo: https://github.com/FreeFlyingSheep/stock-analysis
+  summary: A-share fundamental scoring agent for education purposes.
+  tags: ["agent","hobby"]

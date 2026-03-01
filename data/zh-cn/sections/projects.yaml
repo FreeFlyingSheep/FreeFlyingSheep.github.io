@@ -121,3 +121,9 @@ projects:
   repo: https://github.com/loongson/LoongArch-Documentation
   summary: LoongArch 文档。
   tags: ["documentation","loongarch","professional"]
+
+- name: Stock Analysis
+  role: Owner
+  repo: https://github.com/FreeFlyingSheep/stock-analysis
+  summary: 出于学习目的的 A 股基本面评分智能体。
+  tags: ["agent","hobby"]
