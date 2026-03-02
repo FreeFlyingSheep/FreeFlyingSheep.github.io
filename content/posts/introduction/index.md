@@ -27,7 +27,8 @@ If you ever spot any mistakes or have suggestions, feel free to let me know—I'
 ## What Happened to My Old Blog?
 
 If you've been following my previous blog, you might have noticed that it's no longer available—don't worry!
-It has been archived [here](https://github.com/FreeFlyingSheep/blog-old), and I plan to migrate some of the old posts here over time.
+It has been archived [here](https://github.com/FreeFlyingSheep/blog-old).
+The Chinese posts have been migrated using Codex, and no plans to translate them into English for now.
 
 ## What to Expect?
 
