@@ -17,6 +17,10 @@ buttons:
   filter: "language"
 - name: Tool
   filter: "tool"
+- name: Framework
+  filter: "framework"
+- name: Database
+  filter: "database"
 - name: Platform
   filter: "platform"
 
@@ -70,30 +74,75 @@ skills:
 
 - name: C
   logo: /images/sections/skills/c.svg
-  summary: "Proficient in developing low-level system applications."
+  summary: "Proficient in developing low-level software."
   categories: ["language"]
 
 - name: Python
   logo: /images/sections/skills/python.svg
-  summary: "Experienced in scripting, automation, and problem-solving."
+  summary: "Proficient in developing applications and writing scripts."
+  categories: ["language"]
+
+- name: Shell
+  logo: /images/sections/skills/shell.svg
+  summary: "Capable of writing scripts to automate tasks."
   categories: ["language"]
 
 - name: Git
   logo: /images/sections/skills/git.svg
-  summary: "Skilled in version control and collaborative development."
+  summary: "Capable of version control and collaborative development."
   categories: ["tool"]
 
 - name: Docker
   logo: /images/sections/skills/docker.svg
-  summary: "Capable of using Docker for basic containerization and image management."
+  summary: "Capable of deploying applications and managing container images."
   categories: ["tool"]
+
+- name: Kubernetes
+  logo: /images/sections/skills/kubernetes.svg
+  summary: "Capable of deploying and managing applications."
+  categories: ["tool"]
+
+- name: Prometheus
+  logo: /images/sections/skills/prometheus.svg
+  summary: "Capable of monitoring system and application performance."
+  categories: ["tool"]
+
+- name: Grafana
+  logo: /images/sections/skills/grafana.svg
+  summary: "Capable of visualizing monitoring data and creating dashboards."
+  categories: ["tool"]
+
+- name: FastAPI
+  logo: /images/sections/skills/fastapi.svg
+  summary: "Capable of building high-performance web applications with FastAPI."
+  categories: ["framework"]
+
+- name: LangChain/LangGraph
+  logo: /images/sections/skills/langchain.svg
+  summary: "Capable of building intelligent applications with language models."
+  categories: ["framework"]
+
+- name: PostgreSQL
+  logo: /images/sections/skills/postgresql.svg
+  summary: "Capable of utilizing relational databases for data storage and queries."
+  categories: ["storage"]
+
+- name: Redis
+  logo: /images/sections/skills/redis.svg
+  summary: "Capable of utilizing Redis for caching and message queues."
+  categories: ["storage"]
+
+- name: MinIO
+  logo: /images/sections/skills/minio.svg
+  summary: "Capable of utilizing MinIO for object storage."
+  categories: ["storage"]
 
 - name: Linux
   logo: /images/sections/skills/linux.svg
-  summary: "Comfortable with system administration, scripting, and development."
+  summary: "Proficient in using common commands, scripting, and application development."
   categories: ["platform"]
 
 - name: AWS
   logo: /images/sections/skills/aws.svg
-  summary: "Familiar with cloud computing and infrastructure management."
+  summary: "Capable of building and deploying solutions with cloud services."
   categories: ["platform"]

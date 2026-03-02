@@ -17,6 +17,10 @@ buttons:
   filter: "language"
 - name: 工具
   filter: "tool"
+- name: 框架
+  filter: "framework"
+- name: 存储
+  filter: "storage"
 - name: 平台
   filter: "platform"
 
@@ -70,30 +74,75 @@ skills:
 
 - name: C
   logo: /images/sections/skills/c.svg
-  summary: "掌握：能开发底层软件。"
+  summary: "能开发底层软件。"
   categories: ["language"]
 
 - name: Python
   logo: /images/sections/skills/python.svg
-  summary: "熟练：能写脚本、自动化工具来解决问题。"
+  summary: "能开发应用程序和编写脚本。"
+  categories: ["language"]
+
+- name: Shell
+  logo: /images/sections/skills/shell.svg
+  summary: "能编写脚本自动化任务。"
   categories: ["language"]
 
 - name: Git
   logo: /images/sections/skills/git.svg
-  summary: "掌握：能进行版本控制以及团队协作。"
+  summary: "能进行版本控制和团队协作。"
   categories: ["tool"]
 
 - name: Docker
   logo: /images/sections/skills/docker.svg
-  summary: "熟悉：能部署应用和管理容器、镜像。"
+  summary: "能部署应用和管理容器镜像。"
   categories: ["tool"]
+
+- name: Kubernetes
+  logo: /images/sections/skills/kubernetes.svg
+  summary: "能部署和管理应用。"
+  categories: ["tool"]
+
+- name: Prometheus
+  logo: /images/sections/skills/prometheus.svg
+  summary: "能监控系统和应用性能。"
+  categories: ["tool"]
+
+- name: Grafana
+  logo: /images/sections/skills/grafana.svg
+  summary: "能可视化监控数据和创建仪表盘。"
+  categories: ["tool"]
+
+- name: FastAPI
+  logo: /images/sections/skills/fastapi.svg
+  summary: "能用FastAPI构建高性能Web应用。"
+  categories: ["framework"]
+
+- name: LangChain/LangGraph
+  logo: /images/sections/skills/langchain.svg
+  summary: "能用语言模型构建智能应用。"
+  categories: ["framework"]
+
+- name: PostgreSQL
+  logo: /images/sections/skills/postgresql.svg
+  summary: "能用关系型数据库进行数据存储和查询。"
+  categories: ["storage"]
+
+- name: Redis
+  logo: /images/sections/skills/redis.svg
+  summary: "能用Redis进行缓存和消息队列。"
+  categories: ["storage"]
+
+- name: MinIO
+  logo: /images/sections/skills/minio.svg
+  summary: "能用MinIO进行对象存储。"
+  categories: ["storage"]
 
 - name: Linux
   logo: /images/sections/skills/linux.svg
-  summary: "熟练：能使用常用命令、编写脚本，并开发应用。"
+  summary: "能使用常用命令、编写脚本和开发应用。"
   categories: ["platform"]
 
 - name: AWS
   logo: /images/sections/skills/aws.svg
-  summary: "熟悉：能使用云服务搭建、部署解决方案。"
+  summary: "能用云服务搭建和部署解决方案。"
   categories: ["platform"]
