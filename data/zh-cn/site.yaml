@@ -5,7 +5,7 @@ copyright: © 2023 版权所有。
 disclaimer: "本主题使用 MIT 许可证。本博客使用署名—非商业性使用 4.0 协议国际版（CC BY-NC 4.0）许可证。"
 
 # Meta description for your site.  This will help the search engines to find your site.
-description: 陈飞扬的个人博客。
+description: FreeFlyingSheep 的个人博客。
 
 # specify the list of custom menus that you want to show in the top navbar.
 # they will be separated by a divider from the main menus.
@@ -30,6 +30,6 @@ customMenus:
 openGraph:
   title: FreeFlyingSheep 的博客
   type: website
-  description: 陈飞扬的个人博客。
+  description: FreeFlyingSheep 的个人博客。
   image: images/author/octocat.png
   url: https://FreeFlyingSheep.github.io

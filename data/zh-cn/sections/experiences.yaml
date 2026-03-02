@@ -85,9 +85,9 @@ experiences:
     start: Dec 2020
     end: Aug 2023
     responsibilities:
-    - 开发 Linux 内核并提交补丁到上游，完善系统功能。
-    - 移植关键的底层软件（包括 klibc 和 Valgrind）到 LoongArch 架构，完善软件生态。
-    - 维护 Github 仓库，管理 CI/CD，促进团队协作，提高开发效率。
+    - 参与 Linux 内核开发，面向 MIPS/LoongArch 提交上游补丁，修复缺陷并提升稳定性与兼容性。
+    - 建设 LoongArch 软件生态：移植并验证关键底层软件（如 klibc、Valgrind）在 LoongArch64/Linux 上的可用性与兼容性。
+    - 维护团队 GitHub 仓库与 CI/CD 流程，提升构建/发布可靠性与开发效率。
 
 - company:
     name: 江苏航天龙梦信息技术有限公司
@@ -101,5 +101,5 @@ experiences:
     start: Dec 2020
     end: Jun 2020
     responsibilities:
-    - 开发 Linux 内核，提高系统稳定性。
-    - 移植 OpenStack 到 Fedora MIPS，为相关硬件平台提供了支持。
+    - 参与 Linux 内核开发，通过调试与补丁修复提升系统稳定性。
+    - 将 OpenStack Nova & Devstack 移植到 Fedora MIPS，完成在 MIPS 平台的部署与验证。

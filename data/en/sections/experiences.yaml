@@ -85,9 +85,9 @@ experiences:
     start: Dec 2020
     end: Aug 2023
     responsibilities:
-    - Developed the Linux kernel and submitted patches to upstream, enhancing system functionality.
-    - Ported critical system software, including klibc and Valgrind, to LoongArch architecture, ensuring compatibility.
-    - Maintained and streamlined GitHub repositories, managing CI/CD pipelines to improve team collaboration and deployment efficiency.
+    - Upstreamed Linux kernel patches for MIPS/LoongArch, fixing bugs and improving stability/compatibility.
+    - Enabled LoongArch ecosystem by porting and validating critical system software (e.g., klibc, Valgrind) on LoongArch64/Linux.
+    - Maintained team repositories and CI/CD workflows (GitHub), improving build/release reliability and developer efficiency.
 
 - company:
     name: Jiangsu Lemote Tech Co., Ltd
@@ -101,5 +101,5 @@ experiences:
     start: Dec 2020
     end: Jun 2020
     responsibilities:
-    - Developed the Linux kernel, improving system stability.
-    - Ported OpenStack to Fedora MIPS, expanding support for a broader range of hardware platforms.
+    - Contributed to Linux kernel development, addressing stability issues through debugging and patching.
+    - Ported OpenStack Nova and Devstack to Fedora MIPS, enabling deployment and validation on MIPS platforms.

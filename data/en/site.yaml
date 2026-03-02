@@ -5,7 +5,7 @@ copyright: © 2023 Copyright.
 disclaimer: "This theme is under MIT license. This blog is licensed under CC BY-NC 4.0."
 
 # Meta description for your site.  This will help the search engines to find your site.
-description: Personal blog of Feiyang Chen.
+description: Personal blog of FreeFlyingSheep.
 
 # specify the list of custom menus that you want to show in the top navbar.
 # they will be separated by a divider from the main menus.
@@ -30,6 +30,6 @@ customMenus:
 openGraph:
   title: FreeFlyingSheep's Blog
   type: website
-  description: Personal blog of Feiyang Chen.
+  description: Personal blog of FreeFlyingSheep.
   image: images/author/octocat.png
   url: https://FreeFlyingSheep.github.io
