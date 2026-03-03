@@ -13,6 +13,8 @@ categories: []
 
 Hello and welcome to my new blog!
 
+<!--more-->
+
 ## About This Blog
 
 This blog is built using [Hugo Toha](https://github.com/hugo-toha/toha).

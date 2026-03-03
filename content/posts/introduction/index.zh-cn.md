@@ -13,6 +13,8 @@ categories: []
 
 你好，欢迎来到我的博客！
 
+<!--more-->
+
 ## 关于该博客
 
 该博客使用 [Hugo Toha](https://github.com/hugo-toha/toha) 构建。
