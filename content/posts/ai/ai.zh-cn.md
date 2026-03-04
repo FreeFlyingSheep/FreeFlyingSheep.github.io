@@ -5,7 +5,7 @@ description: ""
 menu:
   sidebar:
     name: "AI 学习笔记"
-    identifier: ai
+    identifier: ai-ai
     parent: ai
     weight: 10
 tags: ["AI"]
@@ -28,7 +28,7 @@ categories: ["AI"]
 
 ## 目录
 
-- [NLP 相关概念](/zh-cn/posts/ai/nlp)
+- [NLP 基本概念](/zh-cn/posts/ai/nlp)
 - [LLM 相关概念](/zh-cn/posts/ai/llm)
 - [Agent 相关概念](/zh-cn/posts/ai/agent)
 - [MCP 相关概念](/zh-cn/posts/ai/mcp)

@@ -31,7 +31,7 @@ languages:
     title: "FreeFlyingSheep 的博客"
     weight: 2
 # default language for the content
-defaultContentLanguage: en
+defaultContentLanguage: zh-cn
 
 # Allow raw html in markdown file
 markup:
@@ -271,7 +271,7 @@ params:
 
     # Enable reading time support in post cards and in post pages
     readingTime:
-      enable: false
+      enable: true
 
     # Number of posts to show to each page. Default is "12"
     pagination:
