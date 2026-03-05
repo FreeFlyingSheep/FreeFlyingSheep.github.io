@@ -18,7 +18,7 @@ categories: ["Linux"]
 
 ## WSL 1 和 WSL 2 的选择
 
-两者的比较可以参考微软官方文档[比较 WSL 1 和 WSL 2](https://docs.microsoft.com/zh-cn/windows/wsl/compare-versions)。
+两者的比较可以参考微软官方文档[比较 WSL 1 和 WSL 2](https://docs.microsoft.com/windows/wsl/compare-versions)。
 
 个人推荐优先选择 WSL 2，若发现 WSL 2 和其他软件冲突，再回退到 WSL 1。
 

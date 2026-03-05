@@ -12,13 +12,13 @@ tags: ["Linux 内核", "内存管理", "内存映射"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，简单介绍内存映射。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，简单介绍内存映射。
 
 <!--more-->
 
 ## 高端内存页框的内存映射简介
 
-内核可以采用三种不同的机制讲页框映射到高端内存：永久内核映射、临时内核映射和非连续内存分配。其中，非连续内存分配的部分见[非连续内存分配](/zh-cn/posts/kernel/memory/uncontinuous)。
+内核可以采用三种不同的机制讲页框映射到高端内存：永久内核映射、临时内核映射和非连续内存分配。其中，非连续内存分配的部分见[非连续内存分配](/posts/kernel/memory/uncontinuous)。
 
 ## 永久内核映射
 

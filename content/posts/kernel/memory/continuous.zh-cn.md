@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内存管理", "连续页框的管理"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，简单介绍连续页框的管理。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，简单介绍连续页框的管理。
 
 <!--more-->
 
@@ -232,7 +232,7 @@ EXPORT_SYMBOL(free_pages);
 
 `__free_pages()` 函数见[释放内存](#释放内存)。
 
-很多函数涉及[伙伴系统](/zh-cn/posts/kernel/memory/buddy-system")和 [per-CPU 页框高速缓存](/zh-cn/posts/kernel/memory/per-cpu)，这里就不展开了。
+很多函数涉及[伙伴系统](/posts/kernel/memory/buddy-system")和 [per-CPU 页框高速缓存](/posts/kernel/memory/per-cpu)，这里就不展开了。
 
 ## 管理区分配器简介
 
@@ -536,7 +536,7 @@ EXPORT_SYMBOL(__alloc_pages);
         }
     ```
 
-13. 如果 `do_retry` 被设置，调用 `blk_congestion_wait()` 使进程休眠一会（见 [TODO](/zh-cn/posts/kernel/todo)），并跳转到第 7 步。
+13. 如果 `do_retry` 被设置，调用 `blk_congestion_wait()` 使进程休眠一会（见 [TODO](/posts/kernel/todo)），并跳转到第 7 步。
 
     ```c
         if (do_retry) {
@@ -622,7 +622,7 @@ EXPORT_SYMBOL(__free_pages);
     })
 ```
 
-很多函数涉及[伙伴系统](/zh-cn/posts/kernel/memory/buddy-system")和 [per-CPU 页框高速缓存](/zh-cn/posts/kernel/memory/per-cpu)，这里就不展开了。
+很多函数涉及[伙伴系统](/posts/kernel/memory/buddy-system")和 [per-CPU 页框高速缓存](/posts/kernel/memory/per-cpu)，这里就不展开了。
 
 ## 内存池
 

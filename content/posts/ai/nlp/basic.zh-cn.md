@@ -12,7 +12,7 @@ tags: ["AI", "NLP"]
 categories: ["AI"]
 ---
 
-[AI 学习笔记系列](/zh-cn/posts/ai/ai)的第一篇，介绍 NLP 的基础概念，包括文本表示、TF-IDF、Word2vec、评估指标等内容。
+[AI 学习笔记系列](/posts/ai/ai)的第一篇，介绍 NLP 的基础概念，包括文本表示、TF-IDF、Word2vec、评估指标等内容。
 
 <!--more-->
 

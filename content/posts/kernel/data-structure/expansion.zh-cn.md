@@ -12,7 +12,7 @@ tags: ["Linux 内核", "GCC 扩展语法"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，GCC 扩展语法和内核数据结构部分，简单介绍 GCC 扩展语法。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，GCC 扩展语法和内核数据结构部分，简单介绍 GCC 扩展语法。
 
 <!--more-->
 

@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内核简介"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内核简介部分，简单介绍 Linux 内核学习的前置知识，以及 Linux 内核的基本概念。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内核简介部分，简单介绍 Linux 内核学习的前置知识，以及 Linux 内核的基本概念。
 
 <!--more-->
 

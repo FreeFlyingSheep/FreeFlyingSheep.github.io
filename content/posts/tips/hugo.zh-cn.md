@@ -36,7 +36,7 @@ hugo new site Blog
 
 ## 使用主题
 
-此处以本人使用的 [LoveIt](https://hugoloveit.com/zh-cn/) 主题为例。
+此处以本人使用的 [LoveIt](https://hugoloveit.com/) 主题为例。
 
 **注意：由于 LoveIt 主题已经不再更新，本博客现在改用 [PaperMod](https://github.com/adityatelange/hugo-PaperMod) 主题。**
 

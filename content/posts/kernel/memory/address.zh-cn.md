@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内存管理", "内存寻址"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，简单介绍内存寻址。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，简单介绍内存寻址。
 
 <!--more-->
 
@@ -63,7 +63,7 @@ categories: ["Kernel"]
 - [IDT](https://wiki.osdev.org/IDT)。
 - [TSS](https://wiki.osdev.org/TSS)。
 
-相关的代码我准备放到系统启动部分一起介绍，见 [TODO](/zh-cn/posts/kernel/todo)。
+相关的代码我准备放到系统启动部分一起介绍，见 [TODO](/posts/kernel/todo)。
 
 ## 分页
 

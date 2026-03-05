@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内存管理", "非连续页框的管理"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，简单介绍非连续页框的管理。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，简单介绍非连续页框的管理。
 
 <!--more-->
 
@@ -301,7 +301,7 @@ fail:
 
 `__vmalloc_area_node()` 和 `__vmalloc_node()` 互相递归，当分配的页描述符指针数组小于一页时，`__vmalloc_area_node()` 调用 `kmalloc_node()` 来分配（`kmalloc_node()` 会通过 `kmalloc()` 分配内存），结束递归。
 
-页描述符指针数组的元素指向 `alloc_pages_node()` 分配的页（`alloc_page()` 最终也会调用 `alloc_pages_node()`，见[请求页框](/zh-cn/posts/kernel/memory/continuous#请求页框)），完成填充。
+页描述符指针数组的元素指向 `alloc_pages_node()` 分配的页（`alloc_page()` 最终也会调用 `alloc_pages_node()`，见[请求页框](/posts/kernel/memory/continuous#请求页框)），完成填充。
 
 完成分配后，通过 `map_vm_area()` 来修改页表项，这个函数的细节比较复杂，暂时不准备去看了。
 

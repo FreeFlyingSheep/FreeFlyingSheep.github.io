@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内存管理", "per-CPU 页框高速缓存"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，简单介绍 per-CPU 高速缓存。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，简单介绍 per-CPU 高速缓存。
 
 <!--more-->
 
@@ -166,7 +166,7 @@ buffered_rmqueue(struct zone *zone, int order, int gfp_flags)
 }
 ```
 
-- 部分内容涉及[伙伴系统](/zh-cn/posts/kernel/memory/buddy-system)，此处不展开了。
+- 部分内容涉及[伙伴系统](/posts/kernel/memory/buddy-system)，此处不展开了。
 - 复合页：将物理上连续的两个或多个页看成一个独立的大页，具体可以参考社区新闻 *[An introduction to compound pages](https://lwn.net/Articles/619514/)*。。
 
 ### 释放页框到 per-CPU 页框高速缓存

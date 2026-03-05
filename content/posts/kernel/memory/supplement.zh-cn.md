@@ -12,13 +12,13 @@ tags: ["Linux 内核", "内存管理"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，内存管理的一些补充说明。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，内存管理的一些补充说明。
 
 <!--more-->
 
 ## 分配函数的选择
 
-如果需要连续的物理页，可以使用某个低级页分配器（[分区页框分配器](/zh-cn/posts/kernel/memory/continuous#分区页框分配器)里请求页框和释放页框的函数/宏）或 `kmalloc()` 函数。
+如果需要连续的物理页，可以使用某个低级页分配器（[分区页框分配器](/posts/kernel/memory/continuous#分区页框分配器)里请求页框和释放页框的函数/宏）或 `kmalloc()` 函数。
 
 对于中断处理程序和其他不能睡眠的代码段，使用 `GFP_ATOMIC` 表示不进行睡眠的高优先级分配。
 

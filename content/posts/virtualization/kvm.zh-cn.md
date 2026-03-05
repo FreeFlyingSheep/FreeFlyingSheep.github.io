@@ -20,7 +20,7 @@ categories: ["Virtualization"]
 
 KVM 是一个完整的虚拟化解决方案，允许用户在特定机器上用虚拟机直接运行未经修改的 Linux 内核。
 
-KVM 通常和 QEMU 结合使用，见 [QEMU 简介](/zh-cn/posts/virtualization/qemu)。
+KVM 通常和 QEMU 结合使用，见 [QEMU 简介](/posts/virtualization/qemu)。
 
 KVM 的 API 接口可以参考[内核文档](https://www.kernel.org/doc/html/latest/virt/kvm/api.html)。
 

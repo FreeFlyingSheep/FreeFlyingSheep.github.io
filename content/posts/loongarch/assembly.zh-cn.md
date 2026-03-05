@@ -60,7 +60,7 @@ LoongArch 的寄存器使用约定基本和 RISC-V 相同。
 
 ## 指令格式
 
-这是我觉得最蛋疼的地方，手册中指出 LoongArch 有 9 种指令格式，但在实际开发中（特别是需要汇编、反汇编的时候），我们往往需要一个更具体的划分，有大佬划分出了 [39 种指令格式](https://blog.xen0n.name/zh-cn/posts/tinkering/loongarch-faq/#真实情况)。
+这是我觉得最蛋疼的地方，手册中指出 LoongArch 有 9 种指令格式，但在实际开发中（特别是需要汇编、反汇编的时候），我们往往需要一个更具体的划分，有大佬划分出了 [39 种指令格式](https://blog.xen0n.name/posts/tinkering/loongarch-faq/#真实情况)。
 好在指令格式对通常意义上的编写汇编代码基本透明。
 
 ## 基础指令

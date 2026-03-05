@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内核简介"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内核简介部分，简单介绍 Linux 内核常见的函数及其作用。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内核简介部分，简单介绍 Linux 内核常见的函数及其作用。
 
 <!--more-->
 
@@ -89,7 +89,7 @@ void *kmalloc(size_t size, gfp_t flags);
 void kfree(const void *)
 ```
 
-这两个函数类似于标准库函数 `malloc()` 和 `free()`，其中 `flags` 表示分配标志，在 [Linux 内存管理 (基础部分)](/zh-cn/posts/kernel/memory/model)中介绍。
+这两个函数类似于标准库函数 `malloc()` 和 `free()`，其中 `flags` 表示分配标志，在 [Linux 内存管理 (基础部分)](/posts/kernel/memory/model)中介绍。
 
 ### 输出信息
 

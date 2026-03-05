@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内存管理", "内存模型"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，简单介绍内存模型。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，简单介绍内存模型。
 
 <!--more-->
 
@@ -61,12 +61,12 @@ typedef struct pglist_data {
 - `node_zonelists`：备用结点及内存区域列表，以便在当前结点没有可用空间时，在备用结点分配内存。
 - `nr_zones`：不同区的数目。
 - `node_mem_map`：指向页实例的指针，包含了当前结点所有区的页。
-- `bdata`：指向自举内存分配器实例的指针，见[内存管理初始化](/zh-cn/posts/kernel/memory/initialization)。
+- `bdata`：指向自举内存分配器实例的指针，见[内存管理初始化](/posts/kernel/memory/initialization)。
 - `node_start_pfn`：当前结点第一个页帧的逻辑编号，系统中所有页帧是依次编号的，因此每个页帧的号码都是全局唯一的。特别地，在 UMA 系统中，因为只有一个结点，所以该值总为 `0`。
 - `node_present_pages`：当前结点中页帧的数目。
 - `node_spanned_pages`：以页帧为单位计算的长度。
 - `node_id`：全局结点编号，从 `0` 开始。
-- `kswapd_wait`、`kswapd` 和 `kswapd_max_order`：交换守护进程（swap daemon）相关的内容，见 [TODO](/zh-cn/posts/kernel/todo)。
+- `kswapd_wait`、`kswapd` 和 `kswapd_max_order`：交换守护进程（swap daemon）相关的内容，见 [TODO](/posts/kernel/todo)。
 
 ### 结点状态管理
 
@@ -135,7 +135,7 @@ enum zone_type {
 };
 ```
 
-其中，`ZONE_MOVABLE` 是伪内存区域，用于防止内存碎片的机制，见 [TODO](/zh-cn/posts/kernel/todo)。`__MAX_NR_ZONES` 在构建过程中会生成 `include/generated/bounds.h` 中的 `MAX_NR_ZONES` 宏（具体生成过程涉及 Kbuild，已经不属于本系列学习笔记的范畴），充当结束标记。
+其中，`ZONE_MOVABLE` 是伪内存区域，用于防止内存碎片的机制，见 [TODO](/posts/kernel/todo)。`__MAX_NR_ZONES` 在构建过程中会生成 `include/generated/bounds.h` 中的 `MAX_NR_ZONES` 宏（具体生成过程涉及 Kbuild，已经不属于本系列学习笔记的范畴），充当结束标记。
 
 ### 区数据结构
 
@@ -246,11 +246,11 @@ enum zone_watermarks {
 - `pages_low`：若空闲页低于该值，则内核开始讲页换出到硬盘。
 - `pages_min`：若空闲页低于该值，那么页回收工作的压力较大，内存急需空闲页。
 
-`lowmem_reserve` 数组代表每个区必须保留的页框数目，见[保留的页框池](/zh-cn/posts/kernel/memory/continuous#保留的页框池)。
+`lowmem_reserve` 数组代表每个区必须保留的页框数目，见[保留的页框池](/posts/kernel/memory/continuous#保留的页框池)。
 
-`pageset` 用于实现每个 CPU 的冷/热页帧列表，见 [per-CPU 高速缓存](/zh-cn/posts/kernel/memory/per-cpu)。
+`pageset` 用于实现每个 CPU 的冷/热页帧列表，见 [per-CPU 高速缓存](/posts/kernel/memory/per-cpu)。
 
-`free_area` 用于实现伙伴系统，见[伙伴系统](/zh-cn/posts/kernel/memory/buddy-system)。
+`free_area` 用于实现伙伴系统，见[伙伴系统](/posts/kernel/memory/buddy-system)。
 
 #### 第二部分
 
@@ -277,7 +277,7 @@ enum lru_list {
 
 较早的版本没有使用 `lru` 数组，而是用 `struct list_head active_list` 表示活动页的集合，`struct list_head inactive_list` 表示不活动页的集合，`unsigned long nr_scan_active` 和 `unsigned long nr_scan_inactive` 指定在回收内存时需要扫描的活动页和不活动页的数目，后面的内容针对的是较新的版本。
 
-`pages_scanned` 指定了上次换出一页以来，有多少页未能成功扫描，见 [TODO](/zh-cn/posts/kernel/todo)。
+`pages_scanned` 指定了上次换出一页以来，有多少页未能成功扫描，见 [TODO](/posts/kernel/todo)。
 
 `flags` 描述当前区的状态：
 
@@ -298,13 +298,13 @@ void zone_clear_flag(struct zone *zone, zone_flags_t flag);
 
 `vm_stat` 维护了当前区的统计信息。可以使用辅助函数 `unsigned long zone_page_state(struct zone *zone, enum zone_stat_item item)` 来读取其中的信息，该函数定义于 `include/linux/vmstat.h`。
 
-`prev_priority` 存储了上一次扫描操作扫描当前区的优先级，见 [TODO](/zh-cn/posts/kernel/todo)。
+`prev_priority` 存储了上一次扫描操作扫描当前区的优先级，见 [TODO](/posts/kernel/todo)。
 
 #### 第三部分
 
 最后来看该结构体的第三部分，很少使用或大多数情况下只读的字段。
 
-`wait_table`、`wait_table_hash_nr_entries` 和 `wait_table_bits` 实现了一个等待队列，可用于等待某一页变为可用进程。可以简单理解为进程排成一一个队列，等待某些条件，在条件变为真时，内核会通知进程恢复工作。具体原理见 [TODO](/zh-cn/posts/kernel/todo)。
+`wait_table`、`wait_table_hash_nr_entries` 和 `wait_table_bits` 实现了一个等待队列，可用于等待某一页变为可用进程。可以简单理解为进程排成一一个队列，等待某些条件，在条件变为真时，内核会通知进程恢复工作。具体原理见 [TODO](/posts/kernel/todo)。
 
 `zone_pgdat` 指向对应的 `pg_list_data` 实例，建立了区和父结点之间的关联。
 
@@ -385,9 +385,9 @@ struct page {
 - `_mapcount`：表示在页表中有多少项指向该页。
 - `inuse`、`objects`、`slab` 和 `freelist`：用于 slub 分配器，这部分内容不属于该学习笔记的范畴。
 - `private`：指向“私有”数据的指针，这里不准备展开介绍。
-- `mapping` 和 `index`：分部指定了页框所在的地址空间和页框在映射内部的偏移量。特别地，若 `mapping` 的低位被置 `1`，则该指针不指向 `address_space` 实例，而是指向 `anon_vma`，实现匿名页的逆向映射，见 [TODO](/zh-cn/posts/kernel/todo)。
+- `mapping` 和 `index`：分部指定了页框所在的地址空间和页框在映射内部的偏移量。特别地，若 `mapping` 的低位被置 `1`，则该指针不指向 `address_space` 实例，而是指向 `anon_vma`，实现匿名页的逆向映射，见 [TODO](/posts/kernel/todo)。
 - `first_page`：指向首页的指针。内核可以将多个连续的页合并成较大的复合页（compound page），分组中的第一个页被称为首页（head page），其余各页称为尾页（tail page）。
-- `lru`：用于在各种链表上维护该页，以便将页按不同类别分组。一个重要的例子是活动页和不活动页，见 [TODO](/zh-cn/posts/kernel/todo)。
+- `lru`：用于在各种链表上维护该页，以便将页按不同类别分组。一个重要的例子是活动页和不活动页，见 [TODO](/posts/kernel/todo)。
 - `virtual`：存储高端内存区域中页的虚拟地址。
 
 用联合体的原因是，某些字段只会被内核的特定部分使用，对于其他部分是多余的，而 C 语言的联合体刚好能解决这一问题。例如，若某一页被用于 slub 分配器，则可以确保该页只被内核使用，那映射计数信息（`_mapcount`）就是多余的，该字段可以被用来存储 slub 分配器相关的信息（`inuse` 和 `objects`）。

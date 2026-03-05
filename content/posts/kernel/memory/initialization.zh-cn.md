@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内存管理", "内存管理初始化"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，简单介绍内存管理初始化。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，简单介绍内存管理初始化。
 
 <!--more-->
 
@@ -231,7 +231,7 @@ void __init initmem_init(unsigned long start_pfn, unsigned long end_pfn,
 }
 ```
 
-该函数主要用于确定物理页的数目，然后初始化 bootmem 分配器，bootmem 分配器的具体细节见 [bootmem 分配器](/zh-cn/posts/kernel/memory/bootmem)。
+该函数主要用于确定物理页的数目，然后初始化 bootmem 分配器，bootmem 分配器的具体细节见 [bootmem 分配器](/posts/kernel/memory/bootmem)。
 
 ### `paging_init()`
 
@@ -324,7 +324,7 @@ static void __init zone_sizes_init(void)
 
 ## `setup_per_cpu_areas()`
 
-`setup_per_cpu_areas()` 函数位于 `arch/x86/kernel/setup_percpu.c`，用于初始化 [per-CPU 高速缓存](/zh-cn/posts/kernel/memory/per-cpu)。
+`setup_per_cpu_areas()` 函数位于 `arch/x86/kernel/setup_percpu.c`，用于初始化 [per-CPU 高速缓存](/posts/kernel/memory/per-cpu)。
 
 ```c
 void __init setup_per_cpu_areas(void)
@@ -592,7 +592,7 @@ static void __init mm_init(void)
 }
 ```
 
-`mem_init()` 函数用于停用 bootmem 分配器并迁移到实际的内存管理函数（见 [bootmem 分配器](/zh-cn/posts/kernel/memory/bootmem)），`kmem_cache_init()` 函数用于初始化 slab/slob/slub 分配器。
+`mem_init()` 函数用于停用 bootmem 分配器并迁移到实际的内存管理函数（见 [bootmem 分配器](/posts/kernel/memory/bootmem)），`kmem_cache_init()` 函数用于初始化 slab/slob/slub 分配器。
 
 ### `setup_per_cpu_pageset()`
 

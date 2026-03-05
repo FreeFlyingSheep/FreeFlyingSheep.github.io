@@ -12,7 +12,7 @@ tags: ["Linux 内核"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，整理《深入理解 Linux 内核》（第三版，以下简称 ULK3）、《Linux 内核设计与实现》（原书第 3 版，以下简称 LKD3）和《深入 Linux 内核架构》（以下简称 PLKA）相关章节的联系以及个人理解。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，整理《深入理解 Linux 内核》（第三版，以下简称 ULK3）、《Linux 内核设计与实现》（原书第 3 版，以下简称 LKD3）和《深入 Linux 内核架构》（以下简称 PLKA）相关章节的联系以及个人理解。
 
 <!--more-->
 
@@ -37,9 +37,9 @@ categories: ["Kernel"]
 
 下面是我根据手册部分章节整理的知识点：
 
-- [宏的陷阱和使用技巧](/zh-cn/posts/kernel/miscellaneous/macros-pitfalls)
-- [预定义宏](/zh-cn/posts/kernel/miscellaneous/predefined-macros)
-- [动态调试](/zh-cn/posts/kernel/miscellaneous/dynamic-debug)
+- [宏的陷阱和使用技巧](/posts/kernel/miscellaneous/macros-pitfalls)
+- [预定义宏](/posts/kernel/miscellaneous/predefined-macros)
+- [动态调试](/posts/kernel/miscellaneous/dynamic-debug)
 
 ## 目录
 
@@ -53,8 +53,8 @@ categories: ["Kernel"]
 2. ULK3 第 一 章：绪论
 3. PLKA 第 1 章：简介和概述
 
-- [Linux 内核基础](/zh-cn/posts/kernel/introduction/basis)
-- [Linux 内核常见函数/宏](/zh-cn/posts/kernel/introduction/common)
+- [Linux 内核基础](/posts/kernel/introduction/basis)
+- [Linux 内核常见函数/宏](/posts/kernel/introduction/common)
 
 ### 内核开发
 
@@ -66,22 +66,22 @@ categories: ["Kernel"]
 6. PLKA 附录 B：使用源代码
 7. PLKA 附录 F：内核开发过程
 
-- [内核编译和调试](/zh-cn/posts/kernel/develop/build)
-- [体系结构相关知识](/zh-cn/posts/kernel/develop/arch)
-- [内核开发相关知识](/zh-cn/posts/kernel/develop/develop)
+- [内核编译和调试](/posts/kernel/develop/build)
+- [体系结构相关知识](/posts/kernel/develop/arch)
+- [内核开发相关知识](/posts/kernel/develop/develop)
 
 ### GCC 扩展语法和内核数据结构
 
 1. LKD3 第 6 章：内核数据结构
 2. PLKA 附录 C：有关 C 语言的注记
 
-- [GCC 扩展语法](/zh-cn/posts/kernel/data-structure/expansion)
-- [内核位图](/zh-cn/posts/kernel/data-structure/bitmap)
-- [内核链表](/zh-cn/posts/kernel/data-structure/list)
-- [内核散列表](/zh-cn/posts/kernel/data-structure/hlist)
-- [内核队列](/zh-cn/posts/kernel/data-structure/kfifo)
-- [内核红黑树](/zh-cn/posts/kernel/data-structure/rbtree)
-- [内核基数树](/zh-cn/posts/kernel/data-structure/radix-tree)
+- [GCC 扩展语法](/posts/kernel/data-structure/expansion)
+- [内核位图](/posts/kernel/data-structure/bitmap)
+- [内核链表](/posts/kernel/data-structure/list)
+- [内核散列表](/posts/kernel/data-structure/hlist)
+- [内核队列](/posts/kernel/data-structure/kfifo)
+- [内核红黑树](/posts/kernel/data-structure/rbtree)
+- [内核基数树](/posts/kernel/data-structure/radix-tree)
 - 内核映射
 
 ### 内存管理
@@ -91,17 +91,17 @@ categories: ["Kernel"]
 3. ULK3 第 八 章：内存管理
 4. PLKA 第 3 章：内存管理
 
-- [内存寻址](/zh-cn/posts/kernel/memory/address)
-- [内存模型](/zh-cn/posts/kernel/memory/model)
-- [伙伴系统](/zh-cn/posts/kernel/memory/buddy-system)
-- [per-CPU 高速缓存](/zh-cn/posts/kernel/memory/per-cpu)
-- [连续页框的管理](/zh-cn/posts/kernel/memory/continuous)
-- [内存映射](/zh-cn/posts/kernel/memory/map)
-- [非连续页框的管理](/zh-cn/posts/kernel/memory/uncontinuous)
-- [slab 分配器](/zh-cn/posts/kernel/memory/slab)
-- [内存管理初始化](/zh-cn/posts/kernel/memory/initialization)
-- [bootmem 分配器](/zh-cn/posts/kernel/memory/bootmem)
-- [内存管理补充](/zh-cn/posts/kernel/memory/supplement)
+- [内存寻址](/posts/kernel/memory/address)
+- [内存模型](/posts/kernel/memory/model)
+- [伙伴系统](/posts/kernel/memory/buddy-system)
+- [per-CPU 高速缓存](/posts/kernel/memory/per-cpu)
+- [连续页框的管理](/posts/kernel/memory/continuous)
+- [内存映射](/posts/kernel/memory/map)
+- [非连续页框的管理](/posts/kernel/memory/uncontinuous)
+- [slab 分配器](/posts/kernel/memory/slab)
+- [内存管理初始化](/posts/kernel/memory/initialization)
+- [bootmem 分配器](/posts/kernel/memory/bootmem)
+- [内存管理补充](/posts/kernel/memory/supplement)
 
 ### 进程管理
 
@@ -203,4 +203,4 @@ categories: ["Kernel"]
 1. PLKA 第 12 章：网络
 2. PLKA 第 19 章：审计
 
-- [TODO 列表](/zh-cn/posts/kernel/todo)
+- [TODO 列表](/posts/kernel/todo)

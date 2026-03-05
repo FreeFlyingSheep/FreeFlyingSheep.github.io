@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内存管理", "伙伴系统"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，简单介绍伙伴系统。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，简单介绍伙伴系统。
 
 <!--more-->
 

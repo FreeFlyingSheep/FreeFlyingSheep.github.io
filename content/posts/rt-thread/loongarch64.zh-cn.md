@@ -18,7 +18,7 @@ categories: ["RT-Thread"]
 
 ## 前言
 
-[移植 RT-Thread 到 LoongArch32](/zh-cn/posts/rt-thread/loongarch32) 中已经介绍了移植 RT 的思路和方式，不再重复介绍。
+[移植 RT-Thread 到 LoongArch32](/posts/rt-thread/loongarch32) 中已经介绍了移植 RT 的思路和方式，不再重复介绍。
 
 本文主要负责填坑，提供编译交叉工具链、newlib 库相关的移植过程，相关代码已经上传 Github。
 

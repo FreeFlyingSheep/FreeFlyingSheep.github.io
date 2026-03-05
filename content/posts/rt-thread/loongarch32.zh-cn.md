@@ -1091,4 +1091,4 @@ SECTIONS
 后续有空可以整个在 QEMU 上运行的 LoongArch64 的 RT，这样就方便开源了。
 但还需要移植 newlib（乍一看这个库的移植好像不复杂？），然后自己做一套工具链，这个坑有点大，不知道以后会不会填（逃
 
-**坑已填，见[移植 RT-Thread 到 LoongArch64](/zh-cn/posts/rt-thread/loongarch64)。**
+**坑已填，见[移植 RT-Thread 到 LoongArch64](/posts/rt-thread/loongarch64)。**

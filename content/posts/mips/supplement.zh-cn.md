@@ -12,7 +12,7 @@ tags: ["MIPS", "汇编", "体系结构"]
 categories: ["MIPS"]
 ---
 
-针对 [MIPS 汇编](/zh-cn/posts/mips/assembly") 和 [MIPS 体系结构](/zh-cn/posts/mips/see-mips-run) 的补充内容。
+针对 [MIPS 汇编](/posts/mips/assembly") 和 [MIPS 体系结构](/posts/mips/see-mips-run) 的补充内容。
 
 <!--more-->
 

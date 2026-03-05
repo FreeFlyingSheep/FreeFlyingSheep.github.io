@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内存管理", "slab 分配器"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内存管理部分，简单介绍 slab 分配器。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内存管理部分，简单介绍 slab 分配器。
 
 <!--more-->
 
@@ -450,7 +450,7 @@ static void slab_destroy (kmem_cache_t *cachep, struct slab *slabp)
 }
 ```
 
-这个函数检查高速缓存是否为它的对象提供了析构方法，如果是，就用析构方法释放 slab 中的所有对象。接着调用 `kmem_freepages()` 把页框返回给伙伴系统。 关于设置了 `SLAB_DESTROY_BY_RCU` 标志的代码，见 [TODO](/zh-cn/posts/kernel/todo)，这里不展开。
+这个函数检查高速缓存是否为它的对象提供了析构方法，如果是，就用析构方法释放 slab 中的所有对象。接着调用 `kmem_freepages()` 把页框返回给伙伴系统。 关于设置了 `SLAB_DESTROY_BY_RCU` 标志的代码，见 [TODO](/posts/kernel/todo)，这里不展开。
 
 ## 对齐内存中的对象
 

@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内核数据结构", "链表"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核基数树。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核基数树。
 
 <!--more-->
 
@@ -249,7 +249,7 @@ void *radix_tree_lookup(struct radix_tree_root *root, unsigned long index)
 EXPORT_SYMBOL(radix_tree_lookup);
 ```
 
-`radix_tree_lookup()` 用于查找单个内容，RCU 相关的内容还没看，这里先无视（见 [TODO 列表](/zh-cn/posts/kernel/todo)）。
+`radix_tree_lookup()` 用于查找单个内容，RCU 相关的内容还没看，这里先无视（见 [TODO 列表](/posts/kernel/todo)）。
 
 ```c
 static unsigned int

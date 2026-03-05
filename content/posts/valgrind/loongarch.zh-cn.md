@@ -1710,7 +1710,7 @@ func check_dup(text string) {
 
 func main() {
     filename := "xxx/valgrind/VEX/priv/guest_loongarch64_toIR.c"
-    filename2 := "xxx/blog/content/zh-cn/posts/valgrind/loongarch.md"
+    filename2 := "xxx/blog/content/posts/valgrind/loongarch.md"
     text1, _ := ioutil.ReadFile(filename)
     check_name(string(text1))
     check_dup(string(text1))

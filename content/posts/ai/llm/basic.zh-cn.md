@@ -12,7 +12,7 @@ tags: ["AI", "LLM"]
 categories: ["AI"]
 ---
 
-[AI 学习笔记系列](/zh-cn/posts/ai/ai)的第四篇，介绍 LLM 相关的基本概念，包括 Transformer 架构、语言模型等内容。
+[AI 学习笔记系列](/posts/ai/ai)的第四篇，介绍 LLM 相关的基本概念，包括 Transformer 架构、语言模型等内容。
 
 <!--more-->
 

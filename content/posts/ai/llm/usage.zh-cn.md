@@ -12,7 +12,7 @@ tags: ["AI", "LLM"]
 categories: ["AI"]
 ---
 
-[AI 学习笔记系列](/zh-cn/posts/ai/ai)的第五篇，介绍 LLM 的训练、使用、评估和提高效率的相关概念。
+[AI 学习笔记系列](/posts/ai/ai)的第五篇，介绍 LLM 的训练、使用、评估和提高效率的相关概念。
 
 <!--more-->
 

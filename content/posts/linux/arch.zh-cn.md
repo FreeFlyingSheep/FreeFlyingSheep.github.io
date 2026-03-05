@@ -391,7 +391,7 @@ XMODIFIERS    DEFAULT=\@im=fcitx
 
 ### 美化终端
 
-安装 oh-my-zsh，见 [使用 Zsh](/zh-cn/posts/tips/zsh)。
+安装 oh-my-zsh，见 [使用 Zsh](/posts/tips/zsh)。
 
 ### 配置开机动画
 

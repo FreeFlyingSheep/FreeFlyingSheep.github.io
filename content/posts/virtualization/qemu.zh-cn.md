@@ -111,7 +111,7 @@ cpu_tb_exec(CPUState *cpu, TranslationBlock *itb, int *tb_exit)` 函数来执行
 
 ## KVM 执行流程简介
 
-QEMU KVM 模式下，QEMU 与内核 KVM 模块交互，这里只考虑 QEMU 部分，内核部分见 [KVM 简介](/zh-cn/posts/virtualization/kvm)。
+QEMU KVM 模式下，QEMU 与内核 KVM 模块交互，这里只考虑 QEMU 部分，内核部分见 [KVM 简介](/posts/virtualization/kvm)。
 
 KVM 的初始化流程大体和 TCG 部分介绍的差不多。
 

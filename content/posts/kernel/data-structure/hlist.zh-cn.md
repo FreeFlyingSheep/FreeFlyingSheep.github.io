@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内核数据结构", "散列表"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核散列表。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核散列表。
 
 <!--more-->
 
@@ -20,7 +20,7 @@ categories: ["Kernel"]
 
 内核散列表的实现称为 `hlist`，头文件为 `include/linux/list.h`。它的操作和内核链表基本一致，只是把函数名中的 `list`（`LIST`）替换成了 `hlist`（`HLIST`）。
 
-内核散列表的使用可以参考[内核链表](/zh-cn/posts/kernel/data-structure/list)的用法，下面直接介绍其具体实现。
+内核散列表的使用可以参考[内核链表](/posts/kernel/data-structure/list)的用法，下面直接介绍其具体实现。
 
 ## 内核散列表的实现
 

@@ -12,7 +12,7 @@ tags: ["Linux 内核", "内核开发"]
 categories: ["Kernel"]
 ---
 
-[Linux 内核学习笔记系列](/zh-cn/posts/kernel/kernel)，内核开发部分，简单介绍 Linux 内核的开发结构的相关知识，以提供参考资料为主。
+[Linux 内核学习笔记系列](/posts/kernel/kernel)，内核开发部分，简单介绍 Linux 内核的开发结构的相关知识，以提供参考资料为主。
 
 <!--more-->
 
