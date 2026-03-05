@@ -18,11 +18,11 @@ customMenus:
   # if you set it to true, make sure you have set `footer.navigation.customMenus: true` in your config.yaml
   # showOnFooter: false
 - name: 标签
-  url: /zh-cn/tags/
+  url: /tags/
   hideFromNavbar: false
   showOnFooter: true
 - name: 类别
-  url: /zh-cn/categories/
+  url: /categories/
   hideFromNavbar: false
   showOnFooter: true
 
