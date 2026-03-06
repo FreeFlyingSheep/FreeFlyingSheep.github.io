@@ -33,14 +33,14 @@ categories: ["AI"]
 
 ## 上下文化表示（Contextual Representations）
 
-为了解释上下文化表示，我们先从**静态嵌入（Static Embeddings）**说起。
+为了解释上下文化表示，我们先从**静态嵌入**（Static Embeddings）说起。
 
 *备注：静态嵌入不是上下文化的。嵌入（Embedding）是一个更广义的概念，指把离散对象（如词、句子、图等）映射到连续向量空间的过程。*
 
 早期的词向量通常是从表里查出来的，同一个词在任何上下文中都是同一个向量，这被称为静态词向量（Static Word Vectors），更一般的说法是静态嵌入。
 常见例子包括：
 
-- **word2vec（CBOW）**：输入上下文词，输出一个词
+- **word2vec**（CBOW）：输入上下文词，输出一个词
 - **GloVe**：统计共现；给每个词随机向量；更新向量使两向量点积近似其共现值
 - **FastText**：将词表示为字符 n-gram 集合，学习 n-gram 向量，词向量为其 n-gram 向量和，用 word2vec skip-gram 训练
 
@@ -73,7 +73,7 @@ WordNet 与向量都能表达词间关系，但它们表达关系的方式不同
 
 静态嵌入的主要缺点是不能处理同一个词在不同上下文中意义不同的问题，这也是上下文化表示要解决的核心动机之一。
 
-与静态嵌入相对，**动态嵌入（Dynamic Embeddings）**指同一个词在不同上下文中有不同的向量表示。
+与静态嵌入相对，**动态嵌入**（Dynamic Embeddings）指同一个词在不同上下文中有不同的向量表示。
 
 ## 编码器-解码器（Encoder-Decoder）
 
@@ -143,7 +143,7 @@ Encoder 和 Decoder 的结构不必相同，可以使用不同大小的权重矩
 
 上面第 2 步的“某方法”可以是：
 
-- **BPE（Byte-Pair Encoding）**：选相邻且最频繁的 pair
+- **BPE**（Byte-Pair Encoding）：选相邻且最频繁的 pair
 - **WordPiece**：训练 n-gram 语言模型；考虑所有可能词表 pair；选加入后最能降低困惑度的 pair
 - **HuggingFace WordPiece**：选择最大化 $ \frac{|\text{combined}|}{|\text{first symbol}|\cdot|\text{second symbol}|} $ 的 pair
 

@@ -6,5 +6,5 @@ menu:
     name: "LLM"
     identifier: ai-llm
     parent: ai
-    weight: 20
+    weight: 30
 ---

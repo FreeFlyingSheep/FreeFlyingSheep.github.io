@@ -6,5 +6,5 @@ menu:
     name: "NLP"
     identifier: ai-nlp
     parent: ai
-    weight: 10
+    weight: 20
 ---
