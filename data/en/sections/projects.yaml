@@ -1,0 +1,123 @@
+# section information
+section:
+  name: Projects
+  id: projects
+  enable: true
+  weight: 5
+  showOnNavbar: true
+  # Can optionally hide the title in sections
+  # hideTitle: true
+
+# filter buttons
+buttons:
+- name: All
+  filter: "all"
+- name: Professional
+  filter: "professional"
+- name: Hobby
+  filter: "hobby"
+
+# your projects
+projects:
+# - name: Kubernetes
+#   logo: /images/sections/projects/kubernetes.png
+#   role: Contributor
+#   timeline: "March 2018 - Present"
+#   repo: https://github.com/kubernetes/kubernetes # If your project is a public repo on GitHub, then provide this link. it will show star count.
+#   #url: ""  # If your project is not a public repo but it has a website or any external details url then provide it here. don't provide "repo" and "url" simultaneously.
+#   summary: Production-Grade Container Scheduling and Management.
+#   tags: ["professional", "kubernetes", "cloud"]
+
+# - name: Tensorflow
+#   logo: /images/sections/projects/tensorflow.png
+#   role: Developer
+#   timeline: "Jun 2018 - Present"
+#   repo: https://github.com/tensorflow/tensorflow
+#   #url: ""
+#   summary: An Open Source Machine Learning Framework for Everyone.
+#   tags: ["professional", "machine-learning"]
+
+# - name: A sample academic paper
+#   role: Team Lead
+#   timeline: "Jan 2017 - Nov 2017"
+#   url: "https://www.example.com"
+#   summary: Lorem ipsum dolor sit amet consectetur adipisicing elit. Sapiente eius reprehenderit animi suscipit autem eligendi esse amet aliquid error eum. Accusantium distinctio soluta aliquid quas placeat modi suscipit eligendi nisi.
+#   tags: ["academic","iot"]
+
+# - name: Nocode
+#   logo: /images/sections/projects/no-code.png
+#   role: Nothing
+#   timeline: "Oct 2019 - Dec 2019"
+#   repo: https://github.com/kelseyhightower/nocode
+#   #url: ""
+#   summary: The best way to write secure and reliable applications. Write nothing; deploy nowhere.
+#   tags: ["hobby", "fun"]
+
+# - name: Toha
+#   logo: /images/sections/projects/toha.png
+#   image: /images/sections/projects/toha_website.png
+#   role: Owner
+#   timeline: "Jun 2019 - Present"
+#   repo: https://github.com/hossainemruz/toha
+#   summary: A Hugo theme for personal portfolio.
+#   tags: ["hobby","hugo","theme","professional"]
+
+- name: Linux Kernel
+  role: Contributor
+  repo: https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/
+  summary: Linux kernel is a free and open source operating system kernel.
+  tags: ["linux","professional"]
+
+- name: Valgrind for LoongArch64/Linux
+  role: Developer
+  repo: https://github.com/FreeFlyingSheep/valgrind-loongarch64
+  summary: Valgrind with support for the LoongArch64/Linux platform. Valgrind is an instrumentation framework for building dynamic analysis tools.
+  tags: ["valgrind","linux","loongarch","professional"]
+
+- name: klibc
+  role: Contributor
+  repo: https://web.git.kernel.org/pub/scm/libs/klibc/klibc.git/
+  summary: klibc is a minimalistic subset of the standard C library.
+  tags: ["klibc","linux","professional"]
+
+- name: RT-Thread for LoongArch
+  role: Developer
+  repo: https://github.com/FreeFlyingSheep/rt-thread
+  summary: RT-Thread with LoongArch support. RT-Thread is an open source IoT Real-Time Operating System (RTOS).
+  tags: ["rtthread","loongarch","professional"]
+
+- name: Kcov
+  role: Contributor
+  repo: https://github.com/SimonKagstrom/kcov
+  summary: Code coverage tool for compiled programs, Python and Bash which uses debugging information to collect and report data without special compilation options.
+  tags: ["kcov","loongarch","professional"]
+
+- name: LoongArch Assembly
+  role: Owner
+  repo: https://github.com/FreeFlyingSheep/loongarch-assembly
+  summary: A vscode extension that provides language support for LoongArch assembly language.
+  tags: ["vscode","loongarch","hobby"]
+
+- name: Devstack for Fedora MIPS
+  role: Developer
+  repo: https://github.com/FreeFlyingSheep/devstack
+  summary: System for quickly installing an OpenStack cloud from upstream git for testing and development.
+  tags: ["openstack","mips","professional"]
+
+- name: LFS
+  role: Owner
+  repo: https://github.com/FreeFlyingSheep/lfs
+  summary: An automatic build script for Linux From Scratch (LFS).
+  tags: ["lfs","linux","hobby"]
+
+- name: Newlib for LoongArch
+  role: Developer
+  repo: https://github.com/FreeFlyingSheep/newlib
+  summary: Newlib is a C library intended for use on embedded systems.
+  tags: ["newlib","loongarch","professional"]
+
+- name: LoongArch Documentation
+  role: Contributor
+  repo: https://github.com/loongson/LoongArch-Documentation
+  summary: The documentation for LoongArch.
+  tags: ["documentation","loongarch","professional"]

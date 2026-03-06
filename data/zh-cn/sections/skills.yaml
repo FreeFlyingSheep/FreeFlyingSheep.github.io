@@ -1,0 +1,99 @@
+# section information
+section:
+  name: 技能
+  id: skills
+  enable: true
+  weight: 2
+  showOnNavbar: true
+  filter: true
+  # Can optionally hide the title in sections
+  # hideTitle: true
+
+# filter buttons
+buttons:
+- name: 全部
+  filter: "all"
+- name: 语言
+  filter: "language"
+- name: 工具
+  filter: "tool"
+- name: 平台
+  filter: "platform"
+
+# Your Skills.
+# Give a summary of you each skill in the summary section.
+skills:
+# - name: Kubernetes
+#   logo: /images/sections/skills/kubernetes.png
+#   summary: "Capable of deploying, managing application on Kubernetes. Experienced in writing Kubernetes controllers for CRDs."
+#   categories: ["container"]
+#   url: "https://kubernetes.io/"
+
+# - name: Go Development
+#   logo: /images/sections/skills/go.png
+#   summary: "Using as the main language for professional development. Capable of writing scalable, testable, and maintainable program."
+#   categories: ["basic", "language"]
+#   url: "https://golang.org/"
+
+# - name: Cloud Computing
+#   logo: /images/sections/skills/cloud.png
+#   summary: "Worked with most of the major clouds such as GCP, AWS, Azure etc."
+#   categories: ["others"]
+
+# - name: Docker
+#   logo: /images/sections/skills/docker.svg
+#   summary: "Write most of the programs as dockerized container. Experienced with multi-stage, multi-arch build process."
+#   categories: ["container"]
+#   url: "https://www.docker.com/"
+
+# - name: Prometheus
+#   logo: /images/sections/skills/prometheus.png
+#   summary: "Capable of setup, configure Prometheus metrics. Experienced with PromQL, AlertManager. Also, experienced with writing metric exporters."
+#   categories: ["basic"]
+#   url: "https://prometheus.io/"
+
+# - name: Linux
+#   logo: /images/sections/skills/linux.png
+#   summary: "Using as the main operating system. Capable of writing bash/shell scripts."
+#   categories: ["others"]
+
+# - name: Git
+#   logo: /images/sections/skills/git.png
+#   summary: "Experienced with git-based development. Mostly, use Github. Also, have experience in working with GitLab."
+#   categories: ["basic"]
+#   url: "https://git-scm.com/"
+
+# - name: C++
+#   logo: /images/sections/skills/c++.png
+#   summary: "Know basic C/C++ programming. Used for contest programming and problem solving."
+#   categories: ["basic", "language"]
+
+- name: C
+  logo: /images/sections/skills/c.svg
+  summary: "掌握：能开发底层软件。"
+  categories: ["language"]
+
+- name: Python
+  logo: /images/sections/skills/python.svg
+  summary: "熟练：能写脚本、自动化工具来解决问题。"
+  categories: ["language"]
+
+- name: Git
+  logo: /images/sections/skills/git.svg
+  summary: "掌握：能进行版本控制以及团队协作。"
+  categories: ["tool"]
+
+- name: Docker
+  logo: /images/sections/skills/docker.svg
+  summary: "熟悉：能部署应用和管理容器、镜像。"
+  categories: ["tool"]
+
+- name: Linux
+  logo: /images/sections/skills/linux.svg
+  summary: "熟练：能使用常用命令、编写脚本，并开发应用。"
+  categories: ["platform"]
+
+- name: AWS
+  logo: /images/sections/skills/aws.svg
+  summary: "熟悉：能使用云服务搭建、部署解决方案。"
+  categories: ["platform"]

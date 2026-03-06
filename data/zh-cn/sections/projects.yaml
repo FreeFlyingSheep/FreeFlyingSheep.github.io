@@ -1,0 +1,123 @@
+# section information
+section:
+  name: 参与项目
+  id: projects
+  enable: true
+  weight: 5
+  showOnNavbar: true
+  # Can optionally hide the title in sections
+  # hideTitle: true
+
+# filter buttons
+buttons:
+- name: 全部
+  filter: "all"
+- name: 专业
+  filter: "professional"
+- name: 兴趣爱好
+  filter: "hobby"
+
+# your projects
+projects:
+# - name: Kubernetes
+#   logo: /images/sections/projects/kubernetes.png
+#   role: Contributor
+#   timeline: "March 2018 - Present"
+#   repo: https://github.com/kubernetes/kubernetes # If your project is a public repo on GitHub, then provide this link. it will show star count.
+#   #url: ""  # If your project is not a public repo but it has a website or any external details url then provide it here. don't provide "repo" and "url" simultaneously.
+#   summary: Production-Grade Container Scheduling and Management.
+#   tags: ["professional", "kubernetes", "cloud"]
+
+# - name: Tensorflow
+#   logo: /images/sections/projects/tensorflow.png
+#   role: Developer
+#   timeline: "Jun 2018 - Present"
+#   repo: https://github.com/tensorflow/tensorflow
+#   #url: ""
+#   summary: An Open Source Machine Learning Framework for Everyone.
+#   tags: ["professional", "machine-learning"]
+
+# - name: A sample academic paper
+#   role: Team Lead
+#   timeline: "Jan 2017 - Nov 2017"
+#   url: "https://www.example.com"
+#   summary: Lorem ipsum dolor sit amet consectetur adipisicing elit. Sapiente eius reprehenderit animi suscipit autem eligendi esse amet aliquid error eum. Accusantium distinctio soluta aliquid quas placeat modi suscipit eligendi nisi.
+#   tags: ["academic","iot"]
+
+# - name: Nocode
+#   logo: /images/sections/projects/no-code.png
+#   role: Nothing
+#   timeline: "Oct 2019 - Dec 2019"
+#   repo: https://github.com/kelseyhightower/nocode
+#   #url: ""
+#   summary: The best way to write secure and reliable applications. Write nothing; deploy nowhere.
+#   tags: ["hobby", "fun"]
+
+# - name: Toha
+#   logo: /images/sections/projects/toha.png
+#   image: /images/sections/projects/toha_website.png
+#   role: Owner
+#   timeline: "Jun 2019 - Present"
+#   repo: https://github.com/hossainemruz/toha
+#   summary: A Hugo theme for personal portfolio.
+#   tags: ["hobby","hugo","theme","professional"]
+
+- name: Linux Kernel
+  role: Contributor
+  repo: https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/
+  summary: Linux 内核是一个自由且开源的操作系统内核。
+  tags: ["linux","professional"]
+
+- name: Valgrind for LoongArch64/Linux
+  role: Developer
+  repo: https://github.com/FreeFlyingSheep/valgrind-loongarch64
+  summary: LoongArch64/Linux 平台支持的 Valgrind。 Valgrind 是一个构建动态分析工具的注入框架。
+  tags: ["valgrind","linux","loongarch","professional"]
+
+- name: klibc
+  role: Contributor
+  repo: https://web.git.kernel.org/pub/scm/libs/klibc/klibc.git/
+  summary: klibc 是一个标准 C 库的最小子集。
+  tags: ["klibc","linux","professional"]
+
+- name: RT-Thread for LoongArch
+  role: Developer
+  repo: https://github.com/FreeFlyingSheep/rt-thread
+  summary: 添加 LoongArch 支持的 RT-Thread。RT-Thread 是一个开源的 IoT 实时操作系统（Real-Time Operating System，RTOS）。
+  tags: ["rtthread","loongarch","professional"]
+
+- name: Kcov
+  role: Contributor
+  repo: https://github.com/SimonKagstrom/kcov
+  summary: 用于编译程序、Python 和 Bash 的代码覆盖工具，它使用调试信息来收集和报告数据，无需特殊的编译选项。
+  tags: ["kcov","loongarch","professional"]
+
+- name: LoongArch Assembly
+  role: Owner
+  repo: https://github.com/FreeFlyingSheep/loongarch-assembly
+  summary: 一个提供 LoongArch 汇编语言支持的 vscode 插件。
+  tags: ["vscode","loongarch","hobby"]
+
+- name: Devstack for Fedora MIPS
+  role: Developer
+  repo: https://github.com/FreeFlyingSheep/devstack
+  summary: 从上游 git 快速安装 OpenStack 云以用来测试开发的系统。
+  tags: ["openstack","mips","professional"]
+
+- name: LFS
+  role: Owner
+  repo: https://github.com/FreeFlyingSheep/lfs
+  summary: 一个 LFS（Linux From Scratch）的自动化构建脚本。
+  tags: ["lfs","linux","hobby"]
+
+- name: Newlib for LoongArch
+  role: Developer
+  repo: https://github.com/FreeFlyingSheep/newlib
+  summary: Newlib 是一个供嵌入式系统使用的 C 库。
+  tags: ["newlib","loongarch","professional"]
+
+- name: LoongArch Documentation
+  role: Contributor
+  repo: https://github.com/loongson/LoongArch-Documentation
+  summary: LoongArch 文档。
+  tags: ["documentation","loongarch","professional"]
