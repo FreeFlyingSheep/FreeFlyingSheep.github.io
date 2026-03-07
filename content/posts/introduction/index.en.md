@@ -30,7 +30,9 @@ If you ever spot any mistakes or have suggestions, feel free to let me know—I'
 
 If you've been following my previous blog, you might have noticed that it's no longer available—don't worry!
 It has been archived [here](https://github.com/FreeFlyingSheep/blog-old).
+
 The Chinese posts have been migrated using Codex, and no plans to translate them into English for now.
+The old blog's TODOs are likely not going to be filled anymore :)
 
 ## What to Expect?
 

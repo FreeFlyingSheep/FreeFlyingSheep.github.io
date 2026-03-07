@@ -6,7 +6,7 @@ menu:
   sidebar:
     name: "Agent 基本概念"
     identifier: ai-agent-basic
-    parent: TODO
+    parent: ai-agent
     weight: 10
 tags: ["AI", "Agent"]
 categories: ["AI"]
