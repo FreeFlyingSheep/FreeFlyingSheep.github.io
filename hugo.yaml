@@ -120,10 +120,10 @@ params:
 
     # Enable comment feature. There, should be only one of them.
     comment:
-      enable: false
+      enable: true
       services:
-        disqus:
-          shortName: toha-example-site
+        # disqus:
+        #   shortName: freeflyingsheep
         # valine:
         #   appId: HTV6askWxVo3vOxlqjjaq2hd-MsYXbMMI
         #   appKey: pVrT3C85KGIuk27t07eh6bUC
@@ -136,17 +136,17 @@ params:
         #   repo: github.com/hugo-toha/hugo-toha.github.io
         #   issueTerm: title
         #   theme: github-light
-        # giscus:
-        #   repo: your-repo/name
-        #   repoID: your-repo-id
-        #   category: your-category
-        #   categoryID: your-category-id
-        # theme: light
-        # map: url
-        # reaction: 1
-        # metadata: 0
-        # inputPosition: bottom
-        # crossOrigin: anonymous
+        giscus:
+          repo: FreeFlyingSheep/FreeFlyingSheep.github.io
+          repoID: R_kgDORf53Rg
+          category: General
+          categoryID: DIC_kwDORf53Rs4C325X
+          theme: light
+          map: url
+          reaction: 1
+          metadata: 0
+          inputPosition: bottom
+          crossOrigin: anonymous
         # commento:
         #   serverURL: cdn.commento.io
         #   autoInit: true
@@ -154,11 +154,11 @@ params:
 
     # Enable Analytics
     analytics:
-      enabled: false
+      enabled: true
       services:
         # Google Analytics
         google:
-          id: G-H4LBG7NDFZ
+          id: G-FF4B2FQP4C
         # # CounterDev
         # counterDev:
         #   id: <your counterdev id>
