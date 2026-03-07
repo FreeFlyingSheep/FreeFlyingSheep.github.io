@@ -1,6 +1,6 @@
 baseURL: https://FreeFlyingSheep.github.io
 
-languageCode: en
+languageCode: zh-CN
 title: "FreeFlyingSheep's Blog"
 
 # Use Hugo modules to add theme
@@ -20,15 +20,15 @@ module:
 # Manage languages
 # For any more details, you can check the official documentation: https://gohugo.io/content-management/multilingual/
 languages:
-  en:
-    languageCode: en
-    languageName: English
-    title: "FreeFlyingSheep's Blog"
-    weight: 1
   zh-cn:
     languageCode: zh-cn
     languageName: 简体中文
     title: "FreeFlyingSheep 的博客"
+    weight: 1
+  en:
+    languageCode: en
+    languageName: English
+    title: "FreeFlyingSheep's Blog"
     weight: 2
 # default language for the content
 defaultContentLanguage: zh-cn
@@ -139,7 +139,7 @@ params:
         giscus:
           repo: FreeFlyingSheep/FreeFlyingSheep.github.io
           repoID: R_kgDORf53Rg
-          category: General
+          category: Comments
           categoryID: DIC_kwDORf53Rs4C325X
           theme: light
           map: url
@@ -154,8 +154,9 @@ params:
 
     # Enable Analytics
     analytics:
-      enabled: true
+      enable: true
       services:
+        enable: true
         # Google Analytics
         google:
           id: G-FF4B2FQP4C
@@ -175,10 +176,10 @@ params:
       enable: false
       services:
         kofi:
-          user: hossainemruz
+          user: freeflyingsheep
           text: Tip Me
-          textColor: "#f9fafc"
-          backgroundColor: "#248aaa"
+          textColor: '#f9fafc'
+          backgroundColor: '#248aaa'
         # buymeacoffee:
         #   user: <your buymeacoffee.com user>
         #   text: Support me on Buy me a coffee!
@@ -196,11 +197,13 @@ params:
 
     # Specify whether to show flag in the language selector. Default is true.
     flags:
-      enable: false
-      # # If you want to use different country flag for a language, specify them here.
-      # flagOverwrites:
-      #   - languageCode: en
-      #     countryCode: us
+      enable: true
+      # If you want to use different country flag for a language, specify them here.
+      flagOverwrites:
+        - languageCode: zh-cn
+          countryCode: cn
+        - languageCode: en
+          countryCode: us
 
     # Enable this to use `embed-pdf` shortcode.
     embedpdf:
@@ -271,7 +274,7 @@ params:
 
     # Enable reading time support in post cards and in post pages
     readingTime:
-      enable: true
+      enable: false
 
     # Number of posts to show to each page. Default is "12"
     pagination:
