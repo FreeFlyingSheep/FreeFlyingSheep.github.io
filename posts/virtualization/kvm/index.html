@@ -1,0 +1,203 @@
+<!doctype html><html lang=zh-cn><head><title>KVM 简介</title><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=X-UA-Compatible content="ie=edge"><link rel=canonical href=https://FreeFlyingSheep.github.io/posts/virtualization/kvm/><link rel=stylesheet href=/application.12d69a55a3afe94646716f1bcc2804b35a0b575ba94febbb0ec6e47bd0bef25f.css integrity="sha256-EtaaVaOv6UZGcW8bzCgEs1oLV1upT+u7Dsbke9C+8l8="><link rel=icon type=image/png href=/images/site/favicon_hu_bf1264eea1001669.png><meta property="og:title" content="KVM 简介"><meta property="og:type" content="website"><meta property="og:description" content="FreeFlyingSheep 的个人博客。"><meta property="og:image" content="https://FreeFlyingSheep.github.io/images/author/octocat.png"><meta property="og:url" content="https://FreeFlyingSheep.github.io/posts/virtualization/kvm/"><meta name=twitter:card content="summary"><meta name=twitter:title content="KVM 简介"><meta name=twitter:description content="简单介绍 Linux 内核的 KVM 模块，以 MIPS 体系结构为例，内核源码版本为 5.10.42。"><meta name=description content="KVM 简介"><script async src="https://www.googletagmanager.com/gtag/js?id=G-FF4B2FQP4C"></script><script>var doNotTrack=!1;if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FF4B2FQP4C")}</script><script integrity="sha256-DO4ugzEwhTW1Id1UIWn0gUJWaebCYOypeTit6LW4QB4=">let theme=localStorage.getItem("theme-scheme")||localStorage.getItem("darkmode:color-scheme")||"light";theme==="system"&&(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?theme="dark":theme="light"),document.documentElement.setAttribute("data-theme",theme)</script></head><body class="type-posts kind-page" data-bs-spy=scroll data-bs-target=#TableOfContents data-bs-offset=80><div class="container-fluid bg-secondary wrapper"><nav class="navbar navbar-expand-xl top-navbar shadow" id=top-navbar><div class=container><button class="navbar-toggler navbar-light" id=sidebar-toggler type=button>
+<i data-feather=sidebar></i>
+</button>
+<a class=navbar-brand href=/><img src=/images/site/logo_hu_bf1264eea1001669.png id=logo alt=Logo>
+FreeFlyingSheep 的博客</a>
+<button class="navbar-toggler navbar-light" id=navbar-toggler type=button data-bs-toggle=collapse data-bs-target=#top-nav-items aria-label=menu>
+<i data-feather=menu></i></button><div class="collapse navbar-collapse dynamic-navbar" id=top-nav-items><ul class="nav navbar-nav ms-auto"><li class=nav-item><a class=nav-link href=/#home>主页</a></li><li class=nav-item><a class=nav-link href=/#about>关于</a></li><li class=nav-item><a class=nav-link href=/#skills>技能</a></li><li class=nav-item><a class=nav-link href=/#experiences>工作经历</a></li><li class=nav-item><a class=nav-link href=/#education>教育经历</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=navbarDropdown role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false>更多的</a><div class=dropdown-menu aria-labelledby=navbarDropdown><a class=dropdown-item href=/#projects>参与项目</a>
+<a class=dropdown-item href=/#recent-posts>最近博文</a></div></li><div id=top-navbar-divider></div><li class=nav-item><a class=nav-link id=blog-link href=/posts>博文</a></li><li class=nav-item><a class=nav-link id=note-link href=/notes>笔记</a></li><li class=nav-item><a class=nav-link href=/tags/>标签</a></li><li class=nav-item><a class=nav-link href=/categories/>类别</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=themeSelector role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false><img id=navbar-theme-icon-svg class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme"></a><div id=themeMenu class="dropdown-menu dropdown-menu-icons-only" aria-labelledby=themeSelector><a class="dropdown-item nav-link" href=# data-scheme=light><img class=theme-icon src=/icons/sun-svgrepo-com.svg width=20 alt="Light Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=dark><img class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=system><img class=theme-icon src=/icons/computer-svgrepo-com.svg width=20 alt="System Theme"></a></div></li></ul></div></div><img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=main-logo alt=Logo>
+<img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=inverted-logo alt="Inverted Logo"></nav><section class=sidebar-section id=sidebar-section><div class=sidebar-holder><div class=sidebar id=sidebar><form class=mx-auto method=get action=/%20search><input type=text name=keyword placeholder data-search id=search-box></form><div class=sidebar-tree><ul class=tree id=tree><li id=list-heading><a href=/%20/posts/ data-filter=all>博文</a></li><div class=subtree><li><a class=list-link href=/posts/introduction/ title=引言>引言</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/> AI</a><ul><li><a class=list-link href=/posts/ai/ai/ title="AI 学习笔记">AI 学习笔记</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/nlp/> NLP</a><ul><li><a class=list-link href=/posts/ai/nlp/basic/ title="NLP 基础概念">NLP 基础概念</a></li><li><a class=list-link href=/posts/ai/nlp/core/ title="NLP 系统">NLP 系统</a></li><li><a class=list-link href=/posts/ai/nlp/supplement/ title="NLP 补充内容">NLP 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/llm/> LLM</a><ul><li><a class=list-link href=/posts/ai/llm/basic/ title="LLM 基本概念">LLM 基本概念</a></li><li><a class=list-link href=/posts/ai/llm/usage/ title="LLM 的使用">LLM 的使用</a></li><li><a class=list-link href=/posts/ai/llm/supplement/ title="LLM 补充内容">LLM 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/agent/> Agent</a><ul><li><a class=list-link href=/posts/ai/agent/basic/ title="Agent 基本概念">Agent 基本概念</a></li><li><a class=list-link href=/posts/ai/agent/mcp/ title="MCP 相关概念">MCP 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/rag/ title="RAG 相关概念">RAG 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/demo/ title="股票分析 Demo">股票分析 Demo</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/git/> Git</a><ul><li><a class=list-link href=/posts/git/command/ title="Git 常用命令">Git 常用命令</a></li><li><a class=list-link href=/posts/git/patch/ title="Git 打补丁">Git 打补丁</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/linux/> Linux</a><ul><li><a class=list-link href=/posts/linux/arch/ title="安装 Arch Linux">安装 Arch Linux</a></li><li><a class=list-link href=/posts/linux/wsl/ title="安装 WSL">安装 WSL</a></li><li><a class=list-link href=/posts/linux/lfs/ title="构建 LFS 系统">构建 LFS 系统</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/loongarch/> LoongArch</a><ul><li><a class=list-link href=/posts/loongarch/assembly/ title="LoongArch 汇编">LoongArch 汇编</a></li><li><a class=list-link href=/posts/loongarch/develop/ title="在 LoongArch 上开发">在 LoongArch 上开发</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/mips/> MIPS</a><ul><li><a class=list-link href=/posts/mips/see-mips-run/ title="MIPS 体系结构">MIPS 体系结构</a></li><li><a class=list-link href=/posts/mips/assembly/ title="MIPS 汇编">MIPS 汇编</a></li><li><a class=list-link href=/posts/mips/supplement/ title=MIPS（补充内容）>MIPS（补充内容）</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/openstack/> OpenStack</a><ul><li><a class=list-link href=/posts/openstack/introduction/ title="OpenStack 简介">OpenStack 简介</a></li><li><a class=list-link href=/posts/openstack/lemote/ title="在龙芯上移植 OpenStack">在龙芯上移植 OpenStack</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/rt-thread/> RT-Thread</a><ul><li><a class=list-link href=/posts/rt-thread/loongarch32/ title="移植 RT-Thread 到 LoongArch32">移植 RT-Thread 到 LoongArch32</a></li><li><a class=list-link href=/posts/rt-thread/loongarch64/ title="移植 RT-Thread 到 LoongArch64">移植 RT-Thread 到 LoongArch64</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/valgrind/> Valgrind</a><ul><li><a class=list-link href=/posts/valgrind/libvex/ title="libVEX 简介">libVEX 简介</a></li><li><a class=list-link href=/posts/valgrind/loongarch/ title="Valgrind for LoongArch">Valgrind for LoongArch</a></li><li><a class=list-link href=/posts/valgrind/valgrind/ title="Valgrind 简介">Valgrind 简介</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/> 内核</a><ul><li><a class=list-link href=/posts/kernel/kernel/ title="Linux 内核学习笔记">Linux 内核学习笔记</a></li><li><a class=list-link href=/posts/kernel/todo/ title="TODO 列表">TODO 列表</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/memory/> 内存管理</a><ul><li><a class=list-link href=/posts/kernel/memory/bootmem/ title="bootmem 分配器">bootmem 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/per-cpu/ title="per-CPU 高速缓存">per-CPU 高速缓存</a></li><li><a class=list-link href=/posts/kernel/memory/slab/ title="slab 分配器">slab 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/buddy-system/ title=伙伴系统>伙伴系统</a></li><li><a class=list-link href=/posts/kernel/memory/address/ title=内存寻址>内存寻址</a></li><li><a class=list-link href=/posts/kernel/memory/map/ title=内存映射>内存映射</a></li><li><a class=list-link href=/posts/kernel/memory/model/ title=内存模型>内存模型</a></li><li><a class=list-link href=/posts/kernel/memory/initialization/ title=内存管理初始化>内存管理初始化</a></li><li><a class=list-link href=/posts/kernel/memory/supplement/ title=内存管理补充>内存管理补充</a></li><li><a class=list-link href=/posts/kernel/memory/continuous/ title=连续页框的管理>连续页框的管理</a></li><li><a class=list-link href=/posts/kernel/memory/uncontinuous/ title=非连续页框的管理>非连续页框的管理</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/develop/> 开发</a><ul><li><a class=list-link href=/posts/kernel/develop/arch/ title=体系结构相关知识>体系结构相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/develop/ title=内核开发相关知识>内核开发相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/build/ title=内核编译和调试>内核编译和调试</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/data-structure/> 数据结构</a><ul><li><a class=list-link href=/posts/kernel/data-structure/expansion/ title="GCC 扩展语法">GCC 扩展语法</a></li><li><a class=list-link href=/posts/kernel/data-structure/bitmap/ title=内核位图>内核位图</a></li><li><a class=list-link href=/posts/kernel/data-structure/radix-tree/ title=内核基数树>内核基数树</a></li><li><a class=list-link href=/posts/kernel/data-structure/hlist/ title=内核散列表>内核散列表</a></li><li><a class=list-link href=/posts/kernel/data-structure/rbtree/ title=内核红黑树>内核红黑树</a></li><li><a class=list-link href=/posts/kernel/data-structure/list/ title=内核链表>内核链表</a></li><li><a class=list-link href=/posts/kernel/data-structure/kfifo/ title=内核队列>内核队列</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/miscellaneous/> 杂项</a><ul><li><a class=list-link href=/posts/kernel/miscellaneous/dynamic-debug/ title=动态调试>动态调试</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/macros-pitfalls/ title=宏的陷阱和使用技巧>宏的陷阱和使用技巧</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/predefined-macros/ title=预定义宏>预定义宏</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/introduction/> 简介</a><ul><li><a class=list-link href=/posts/kernel/introduction/basis/ title="Linux 内核基础">Linux 内核基础</a></li><li><a class=list-link href=/posts/kernel/introduction/common/ title="Linux 内核常见函数/宏">Linux 内核常见函数/宏</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/tips/> 技巧</a><ul><li><a class=list-link href=/posts/tips/github/ title="Github 模板">Github 模板</a></li><li><a class=list-link href=/posts/tips/generic-entry/ title="Linux 中断和系统调用通用框架">Linux 中断和系统调用通用框架</a></li><li><a class=list-link href=/posts/tips/mips-boot/ title="Linux/MIPS 启动">Linux/MIPS 启动</a></li><li><a class=list-link href=/posts/tips/shell-redirect/ title="shell 重定向小技巧">shell 重定向小技巧</a></li><li><a class=list-link href=/posts/tips/hugo/ title="使用 Hugo 搭建个人博客">使用 Hugo 搭建个人博客</a></li><li><a class=list-link href=/posts/tips/zsh/ title="使用 Zsh">使用 Zsh</a></li><li><a class=list-link href=/posts/tips/linux-version/ title="查看 Linux 版本">查看 Linux 版本</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/virtualization/> 虚拟化</a><ul class=active><li><a class="active list-link" href=/posts/virtualization/kvm/ title="KVM 简介">KVM 简介</a></li><li><a class=list-link href=/posts/virtualization/qemu/ title="QEMU 简介">QEMU 简介</a></li></ul></li></div></ul></div></div></div></section><section class=content-section id=content-section><div class=content><div class="container p-0 read-area"><div class="hero-area col-sm-12" id=hero-area style=background-image:url(/images/default-hero_hu_1e630a6e35d8e16.jpg)></div><div class=page-content><div class="author-profile ms-auto align-self-lg-center"><img class=rounded-circle src=/images/author/octocat_hu_88b3a7924ca87a69.png alt="Author Image"><h5 class=author-name>FreeFlyingSheep</h5><p class=text-muted>Wednesday, June 9, 2021 |
+3 分钟</p></div><div class=title><h1>KVM 简介</h1></div><div class=tags><ul style=padding-left:0><li><a href=/tags/kvm/ class="btn btn-sm btn-outline-info rounded">KVM</a></li><li><a href=/tags/linux-%E5%86%85%E6%A0%B8/ class="btn btn-sm btn-outline-info rounded">Linux 内核</a></li></ul></div><div class=post-content id=post-content><p>简单介绍 Linux 内核的 KVM 模块，以 MIPS 体系结构为例，内核源码版本为 5.10.42。</p><h2 id=kvm-kernel-based-virtual-machine>KVM (Kernel-based Virtual Machine)</h2><p>KVM 是一个完整的虚拟化解决方案，允许用户在特定机器上用虚拟机直接运行未经修改的 Linux 内核。</p><p>KVM 通常和 QEMU 结合使用，见 <a href=/posts/virtualization/qemu>QEMU 简介</a>。</p><p>KVM 的 API 接口可以参考<a href=https://www.kernel.org/doc/html/latest/virt/kvm/api.html target=_blank rel=noopener>内核文档</a>。</p><p>KVM 模块有体系结构相关和无关的两部分，简单起见，体系结构相关的部分只考虑 MIPS 的代码，选用内核源码版本为 5.10.42。</p><h2 id=模块初始化>模块初始化</h2><p><code>arch/mips/kvm/mips.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> __init <span style=color:#a6e22e>kvm_mips_init</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> ret;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (cpu_has_mmid) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>pr_warn</span>(<span style=color:#e6db74>&#34;KVM does not yet support MMIDs. KVM Disabled</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#f92672>-</span>EOPNOTSUPP;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ret <span style=color:#f92672>=</span> <span style=color:#a6e22e>kvm_mips_entry_setup</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (ret)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> ret;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ret <span style=color:#f92672>=</span> <span style=color:#a6e22e>kvm_init</span>(NULL, <span style=color:#66d9ef>sizeof</span>(<span style=color:#66d9ef>struct</span> kvm_vcpu), <span style=color:#ae81ff>0</span>, THIS_MODULE);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (ret)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> ret;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>boot_cpu_type</span>() <span style=color:#f92672>==</span> CPU_LOONGSON64)
+</span></span><span style=display:flex><span>        kvm_priority_to_irq <span style=color:#f92672>=</span> kvm_loongson3_priority_to_irq;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>register_die_notifier</span>(<span style=color:#f92672>&amp;</span>kvm_mips_csr_die_notifier);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>module_init</span>(kvm_mips_init);
+</span></span></code></pre></div><p><code>kvm_mips_init()</code> 函数会调用体系结构无关的初始化函数 <code>kvm_init()</code>。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kvm_init</span>(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>opaque, <span style=color:#66d9ef>unsigned</span> vcpu_size, <span style=color:#66d9ef>unsigned</span> vcpu_align,
+</span></span><span style=display:flex><span>                  <span style=color:#66d9ef>struct</span> module <span style=color:#f92672>*</span>module)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> kvm_cpu_compat_check c;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> r;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> cpu;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    r <span style=color:#f92672>=</span> <span style=color:#a6e22e>kvm_arch_init</span>(opaque);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (r)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out_fail;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * kvm_arch_init makes sure there&#39;s at most one caller
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * for architectures that support multiple implementations,
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * like intel and amd on x86.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * kvm_arch_init must be called before kvm_irqfd_init to avoid creating
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * conflicts in case kvm is already setup for another implementation.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    r <span style=color:#f92672>=</span> <span style=color:#a6e22e>kvm_irqfd_init</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (r)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out_irqfd;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>zalloc_cpumask_var</span>(<span style=color:#f92672>&amp;</span>cpus_hardware_enabled, GFP_KERNEL)) {
+</span></span><span style=display:flex><span>        r <span style=color:#f92672>=</span> <span style=color:#f92672>-</span>ENOMEM;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out_free_0;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    r <span style=color:#f92672>=</span> <span style=color:#a6e22e>kvm_arch_hardware_setup</span>(opaque);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (r <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out_free_1;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    c.ret <span style=color:#f92672>=</span> <span style=color:#f92672>&amp;</span>r;
+</span></span><span style=display:flex><span>    c.opaque <span style=color:#f92672>=</span> opaque;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>for_each_online_cpu</span>(cpu) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>smp_call_function_single</span>(cpu, check_processor_compat, <span style=color:#f92672>&amp;</span>c, <span style=color:#ae81ff>1</span>);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (r <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>goto</span> out_free_2;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    r <span style=color:#f92672>=</span> <span style=color:#a6e22e>cpuhp_setup_state_nocalls</span>(CPUHP_AP_KVM_STARTING, <span style=color:#e6db74>&#34;kvm/cpu:starting&#34;</span>,
+</span></span><span style=display:flex><span>                                  kvm_starting_cpu, kvm_dying_cpu);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (r)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out_free_2;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>register_reboot_notifier</span>(<span style=color:#f92672>&amp;</span>kvm_reboot_notifier);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* A kmem cache lets us meet the alignment requirements of fx_save. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>vcpu_align)
+</span></span><span style=display:flex><span>        vcpu_align <span style=color:#f92672>=</span> <span style=color:#a6e22e>__alignof__</span>(<span style=color:#66d9ef>struct</span> kvm_vcpu);
+</span></span><span style=display:flex><span>    kvm_vcpu_cache <span style=color:#f92672>=</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>kmem_cache_create_usercopy</span>(<span style=color:#e6db74>&#34;kvm_vcpu&#34;</span>, vcpu_size, vcpu_align,
+</span></span><span style=display:flex><span>                                   SLAB_ACCOUNT,
+</span></span><span style=display:flex><span>                                   <span style=color:#a6e22e>offsetof</span>(<span style=color:#66d9ef>struct</span> kvm_vcpu, arch),
+</span></span><span style=display:flex><span>                                   <span style=color:#a6e22e>sizeof_field</span>(<span style=color:#66d9ef>struct</span> kvm_vcpu, arch),
+</span></span><span style=display:flex><span>                                   NULL);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>kvm_vcpu_cache) {
+</span></span><span style=display:flex><span>        r <span style=color:#f92672>=</span> <span style=color:#f92672>-</span>ENOMEM;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out_free_3;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    r <span style=color:#f92672>=</span> <span style=color:#a6e22e>kvm_async_pf_init</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (r)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out_free;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    kvm_chardev_ops.owner <span style=color:#f92672>=</span> module;
+</span></span><span style=display:flex><span>    kvm_vm_fops.owner <span style=color:#f92672>=</span> module;
+</span></span><span style=display:flex><span>    kvm_vcpu_fops.owner <span style=color:#f92672>=</span> module;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    r <span style=color:#f92672>=</span> <span style=color:#a6e22e>misc_register</span>(<span style=color:#f92672>&amp;</span>kvm_dev);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (r) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>pr_err</span>(<span style=color:#e6db74>&#34;kvm: misc device register failed</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out_unreg;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>register_syscore_ops</span>(<span style=color:#f92672>&amp;</span>kvm_syscore_ops);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    kvm_preempt_ops.sched_in <span style=color:#f92672>=</span> kvm_sched_in;
+</span></span><span style=display:flex><span>    kvm_preempt_ops.sched_out <span style=color:#f92672>=</span> kvm_sched_out;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kvm_init_debug</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    r <span style=color:#f92672>=</span> <span style=color:#a6e22e>kvm_vfio_ops_init</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>WARN_ON</span>(r);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>out_unreg:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kvm_async_pf_deinit</span>();
+</span></span><span style=display:flex><span>out_free:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kmem_cache_destroy</span>(kvm_vcpu_cache);
+</span></span><span style=display:flex><span>out_free_3:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>unregister_reboot_notifier</span>(<span style=color:#f92672>&amp;</span>kvm_reboot_notifier);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>cpuhp_remove_state_nocalls</span>(CPUHP_AP_KVM_STARTING);
+</span></span><span style=display:flex><span>out_free_2:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kvm_arch_hardware_unsetup</span>();
+</span></span><span style=display:flex><span>out_free_1:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>free_cpumask_var</span>(cpus_hardware_enabled);
+</span></span><span style=display:flex><span>out_free_0:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kvm_irqfd_exit</span>();
+</span></span><span style=display:flex><span>out_irqfd:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kvm_arch_exit</span>();
+</span></span><span style=display:flex><span>out_fail:
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> r;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL_GPL</span>(kvm_init);
+</span></span></code></pre></div><p>可以看到，<code>kvm_init()</code> 会调用 <code>misc_register()</code> 函数来注册块设备 <code>/dev/kvm</code>。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>long</span> <span style=color:#a6e22e>kvm_dev_ioctl</span>(<span style=color:#66d9ef>struct</span> file <span style=color:#f92672>*</span>filp,
+</span></span><span style=display:flex><span>                          <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> ioctl, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> arg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>long</span> r <span style=color:#f92672>=</span> <span style=color:#f92672>-</span>EINVAL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>switch</span> (ioctl) {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>case</span> KVM_GET_API_VERSION:
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (arg)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>        r <span style=color:#f92672>=</span> KVM_API_VERSION;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>case</span> KVM_CREATE_VM:
+</span></span><span style=display:flex><span>        r <span style=color:#f92672>=</span> <span style=color:#a6e22e>kvm_dev_ioctl_create_vm</span>(arg);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>case</span> KVM_CHECK_EXTENSION:
+</span></span><span style=display:flex><span>        r <span style=color:#f92672>=</span> <span style=color:#a6e22e>kvm_vm_ioctl_check_extension_generic</span>(NULL, arg);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>case</span> KVM_GET_VCPU_MMAP_SIZE:
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (arg)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>        r <span style=color:#f92672>=</span> PAGE_SIZE;     <span style=color:#75715e>/* struct kvm_run */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_X86
+</span></span></span><span style=display:flex><span>        r <span style=color:#f92672>+=</span> PAGE_SIZE;    <span style=color:#75715e>/* pio data page */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_KVM_MMIO
+</span></span></span><span style=display:flex><span>        r <span style=color:#f92672>+=</span> PAGE_SIZE;    <span style=color:#75715e>/* coalesced mmio ring page */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>        <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>case</span> KVM_TRACE_ENABLE:
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>case</span> KVM_TRACE_PAUSE:
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>case</span> KVM_TRACE_DISABLE:
+</span></span><span style=display:flex><span>        r <span style=color:#f92672>=</span> <span style=color:#f92672>-</span>EOPNOTSUPP;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>default</span><span style=color:#f92672>:</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>kvm_arch_dev_ioctl</span>(filp, ioctl, arg);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>out:
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> r;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>struct</span> file_operations kvm_chardev_ops <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>    .unlocked_ioctl <span style=color:#f92672>=</span> kvm_dev_ioctl,
+</span></span><span style=display:flex><span>    .llseek         <span style=color:#f92672>=</span> noop_llseek,
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>KVM_COMPAT</span>(kvm_dev_ioctl),
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>struct</span> miscdevice kvm_dev <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>    KVM_MINOR,
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;kvm&#34;</span>,
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&amp;</span>kvm_chardev_ops,
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h2 id=创建虚拟机>创建虚拟机</h2><p>TODO</p></div><div class="row ps-3 pe-3"><div class="col-md-6 share-buttons"><strong>分享:</strong>
+<a class="btn icon-button bg-facebook" href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fvirtualization%2fkvm%2f" target=_blank><i class="fab fa-facebook"></i>
+</a><a class="btn icon-button bg-twitter" href="https://twitter.com/share?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fvirtualization%2fkvm%2f&text=KVM%20%e7%ae%80%e4%bb%8b&via=FreeFlyingSheep%20%e7%9a%84%e5%8d%9a%e5%ae%a2" target=_blank><i class="fab fa-twitter"></i>
+</a><a class="btn icon-button bg-reddit" href="https://reddit.com/submit?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fvirtualization%2fkvm%2f&title=KVM%20%e7%ae%80%e4%bb%8b" target=_blank><i class="fab fa-reddit"></i>
+</a><a class="btn icon-button bg-linkedin" href="https://www.linkedin.com/shareArticle?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fvirtualization%2fkvm%2f&title=KVM%20%e7%ae%80%e4%bb%8b" target=_blank><i class="fab fa-linkedin"></i>
+</a><a class="btn icon-button bg-whatsapp" href="https://api.whatsapp.com/send?text=KVM%20%e7%ae%80%e4%bb%8b https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fvirtualization%2fkvm%2f" target=_blank><i class="fab fa-whatsapp"></i>
+</a><a class="btn icon-button" href="mailto:?subject=KVM%20%e7%ae%80%e4%bb%8b&body=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fvirtualization%2fkvm%2f" target=_blank><i class="fas fa-envelope-open-text"></i></a></div><div class="col-md-6 btn-improve-page"><a href=https://github.com/FreeFlyingSheep/FreeFlyingSheep.github.io/edit//content/posts/virtualization/kvm.md title target=_blank rel=noopener><i class="fas fa-code-branch"></i>
+改善此页面</a></div></div><hr><div class="row next-prev-navigator"><div class="col-md-6 previous-article"><a href=/posts/tips/linux-version/ title="查看 Linux 版本" class="btn filled-button"><div><i class="fas fa-chevron-circle-left"></i> 上一篇</div><div class=next-prev-text>查看 Linux 版本</div></a></div><div class="col-md-6 next-article"><a href=/posts/virtualization/qemu/ title="QEMU 简介" class="btn filled-button"><div>下一篇 <i class="fas fa-chevron-circle-right"></i></div><div class=next-prev-text>QEMU 简介</div></a></div></div><hr><script src=https://giscus.app/client.js data-repo=FreeFlyingSheep/FreeFlyingSheep.github.io data-repo-id=R_kgDORf53Rg data-category=Comments data-category-id=DIC_kwDORf53Rs4C325X data-mapping=url data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang crossorigin=anonymous async></script></div></div></div><a id=scroll-to-top class=btn type=button data-bs-toggle=tooltip data-bs-placement=left title="Scroll to top"><i class="fas fa-chevron-circle-up"></i></a></section><section class=toc-section id=toc-section><div class=toc-holder><h5 class="text-center ps-3">目录</h5><hr><div class=toc><nav id=TableOfContents><ul><li><a href=#kvm-kernel-based-virtual-machine>KVM (Kernel-based Virtual Machine)</a></li><li><a href=#模块初始化>模块初始化</a></li><li><a href=#创建虚拟机>创建虚拟机</a></li></ul></nav></div></div></section></div><footer id=footer class="container-fluid text-center align-content-center footer pb-2"><div class="container pt-5"><div class="row text-start"><div class="col-md-4 col-sm-12"><h5>导航</h5><ul><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#about>关于</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#skills>技能</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#experiences>工作经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#education>教育经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#projects>参与项目</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#recent-posts>最近博文</a></li><li class=nav-item><a class=smooth-scroll href=/tags/>标签</a></li><li class=nav-item><a class=smooth-scroll href=/categories/>类别</a></li></ul></div><div class="col-md-4 col-sm-12"><h5>联系方式:</h5><ul><li><a href=mailto:chris.chenfeiyang@gmail.com target=_blank rel=noopener><span><i class="fas fa-envelope"></i></span> <span>chris.chenfeiyang@gmail.com</span></a></li><li><a href=https://github.com/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-github"></i></span> <span>FreeFlyingSheep</span></a></li><li><a href=https://www.linkedin.com/in/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-linkedin"></i></span> <span>FreeFlyingSheep</span></a></li></ul></div></div></div><hr><div class=container><p id=disclaimer><strong>免责声明:</strong> 本主题使用 MIT 许可证。本博客使用署名—非商业性使用 4.0 协议国际版（CC BY-NC 4.0）许可证。</p></div><hr><div class=container><div class="row text-start"><div class=col-md-4><a id=theme href=https://github.com/hugo-toha/toha target=_blank rel=noopener><img src=/images/theme-logo_hu_be7279b2506ad3f1.png alt="Toha Theme Logo">
+Toha</a></div><div class="col-md-4 text-center">© 2023 版权所有。</div><div class="col-md-4 text-end"><a id=hugo href=https://gohugo.io/ target=_blank rel=noopener>Powered by
+<img src=/images/hugo-logo.svg alt="Hugo Logo" height=18></a></div></div></div></footer><script src=/application.526b71351c36e243e2d7f272cedce3393c291461a3b0a49f877f3a3b4995291d.js integrity="sha256-UmtxNRw24kPi1/JyztzjOTwpFGGjsKSfh386O0mVKR0=" defer></script></body></html>

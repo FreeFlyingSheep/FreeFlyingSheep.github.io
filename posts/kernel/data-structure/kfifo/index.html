@@ -1,0 +1,365 @@
+<!doctype html><html lang=zh-cn><head><title>内核队列</title><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=X-UA-Compatible content="ie=edge"><link rel=canonical href=https://FreeFlyingSheep.github.io/posts/kernel/data-structure/kfifo/><link rel=stylesheet href=/application.12d69a55a3afe94646716f1bcc2804b35a0b575ba94febbb0ec6e47bd0bef25f.css integrity="sha256-EtaaVaOv6UZGcW8bzCgEs1oLV1upT+u7Dsbke9C+8l8="><link rel=icon type=image/png href=/images/site/favicon_hu_bf1264eea1001669.png><meta property="og:title" content="内核队列"><meta property="og:type" content="website"><meta property="og:description" content="FreeFlyingSheep 的个人博客。"><meta property="og:image" content="https://FreeFlyingSheep.github.io/images/author/octocat.png"><meta property="og:url" content="https://FreeFlyingSheep.github.io/posts/kernel/data-structure/kfifo/"><meta name=twitter:card content="summary"><meta name=twitter:title content="内核队列"><meta name=twitter:description content="Linux 内核学习笔记系列，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核队列。"><meta name=description content="内核队列"><script async src="https://www.googletagmanager.com/gtag/js?id=G-FF4B2FQP4C"></script><script>var doNotTrack=!1;if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FF4B2FQP4C")}</script><script integrity="sha256-DO4ugzEwhTW1Id1UIWn0gUJWaebCYOypeTit6LW4QB4=">let theme=localStorage.getItem("theme-scheme")||localStorage.getItem("darkmode:color-scheme")||"light";theme==="system"&&(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?theme="dark":theme="light"),document.documentElement.setAttribute("data-theme",theme)</script></head><body class="type-posts kind-page" data-bs-spy=scroll data-bs-target=#TableOfContents data-bs-offset=80><div class="container-fluid bg-secondary wrapper"><nav class="navbar navbar-expand-xl top-navbar shadow" id=top-navbar><div class=container><button class="navbar-toggler navbar-light" id=sidebar-toggler type=button>
+<i data-feather=sidebar></i>
+</button>
+<a class=navbar-brand href=/><img src=/images/site/logo_hu_bf1264eea1001669.png id=logo alt=Logo>
+FreeFlyingSheep 的博客</a>
+<button class="navbar-toggler navbar-light" id=navbar-toggler type=button data-bs-toggle=collapse data-bs-target=#top-nav-items aria-label=menu>
+<i data-feather=menu></i></button><div class="collapse navbar-collapse dynamic-navbar" id=top-nav-items><ul class="nav navbar-nav ms-auto"><li class=nav-item><a class=nav-link href=/#home>主页</a></li><li class=nav-item><a class=nav-link href=/#about>关于</a></li><li class=nav-item><a class=nav-link href=/#skills>技能</a></li><li class=nav-item><a class=nav-link href=/#experiences>工作经历</a></li><li class=nav-item><a class=nav-link href=/#education>教育经历</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=navbarDropdown role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false>更多的</a><div class=dropdown-menu aria-labelledby=navbarDropdown><a class=dropdown-item href=/#projects>参与项目</a>
+<a class=dropdown-item href=/#recent-posts>最近博文</a></div></li><div id=top-navbar-divider></div><li class=nav-item><a class=nav-link id=blog-link href=/posts>博文</a></li><li class=nav-item><a class=nav-link id=note-link href=/notes>笔记</a></li><li class=nav-item><a class=nav-link href=/tags/>标签</a></li><li class=nav-item><a class=nav-link href=/categories/>类别</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=themeSelector role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false><img id=navbar-theme-icon-svg class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme"></a><div id=themeMenu class="dropdown-menu dropdown-menu-icons-only" aria-labelledby=themeSelector><a class="dropdown-item nav-link" href=# data-scheme=light><img class=theme-icon src=/icons/sun-svgrepo-com.svg width=20 alt="Light Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=dark><img class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=system><img class=theme-icon src=/icons/computer-svgrepo-com.svg width=20 alt="System Theme"></a></div></li></ul></div></div><img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=main-logo alt=Logo>
+<img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=inverted-logo alt="Inverted Logo"></nav><section class=sidebar-section id=sidebar-section><div class=sidebar-holder><div class=sidebar id=sidebar><form class=mx-auto method=get action=/%20search><input type=text name=keyword placeholder data-search id=search-box></form><div class=sidebar-tree><ul class=tree id=tree><li id=list-heading><a href=/%20/posts/ data-filter=all>博文</a></li><div class=subtree><li><a class=list-link href=/posts/introduction/ title=引言>引言</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/> AI</a><ul><li><a class=list-link href=/posts/ai/ai/ title="AI 学习笔记">AI 学习笔记</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/nlp/> NLP</a><ul><li><a class=list-link href=/posts/ai/nlp/basic/ title="NLP 基础概念">NLP 基础概念</a></li><li><a class=list-link href=/posts/ai/nlp/core/ title="NLP 系统">NLP 系统</a></li><li><a class=list-link href=/posts/ai/nlp/supplement/ title="NLP 补充内容">NLP 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/llm/> LLM</a><ul><li><a class=list-link href=/posts/ai/llm/basic/ title="LLM 基本概念">LLM 基本概念</a></li><li><a class=list-link href=/posts/ai/llm/usage/ title="LLM 的使用">LLM 的使用</a></li><li><a class=list-link href=/posts/ai/llm/supplement/ title="LLM 补充内容">LLM 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/agent/> Agent</a><ul><li><a class=list-link href=/posts/ai/agent/basic/ title="Agent 基本概念">Agent 基本概念</a></li><li><a class=list-link href=/posts/ai/agent/mcp/ title="MCP 相关概念">MCP 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/rag/ title="RAG 相关概念">RAG 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/demo/ title="股票分析 Demo">股票分析 Demo</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/git/> Git</a><ul><li><a class=list-link href=/posts/git/command/ title="Git 常用命令">Git 常用命令</a></li><li><a class=list-link href=/posts/git/patch/ title="Git 打补丁">Git 打补丁</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/linux/> Linux</a><ul><li><a class=list-link href=/posts/linux/arch/ title="安装 Arch Linux">安装 Arch Linux</a></li><li><a class=list-link href=/posts/linux/wsl/ title="安装 WSL">安装 WSL</a></li><li><a class=list-link href=/posts/linux/lfs/ title="构建 LFS 系统">构建 LFS 系统</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/loongarch/> LoongArch</a><ul><li><a class=list-link href=/posts/loongarch/assembly/ title="LoongArch 汇编">LoongArch 汇编</a></li><li><a class=list-link href=/posts/loongarch/develop/ title="在 LoongArch 上开发">在 LoongArch 上开发</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/mips/> MIPS</a><ul><li><a class=list-link href=/posts/mips/see-mips-run/ title="MIPS 体系结构">MIPS 体系结构</a></li><li><a class=list-link href=/posts/mips/assembly/ title="MIPS 汇编">MIPS 汇编</a></li><li><a class=list-link href=/posts/mips/supplement/ title=MIPS（补充内容）>MIPS（补充内容）</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/openstack/> OpenStack</a><ul><li><a class=list-link href=/posts/openstack/introduction/ title="OpenStack 简介">OpenStack 简介</a></li><li><a class=list-link href=/posts/openstack/lemote/ title="在龙芯上移植 OpenStack">在龙芯上移植 OpenStack</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/rt-thread/> RT-Thread</a><ul><li><a class=list-link href=/posts/rt-thread/loongarch32/ title="移植 RT-Thread 到 LoongArch32">移植 RT-Thread 到 LoongArch32</a></li><li><a class=list-link href=/posts/rt-thread/loongarch64/ title="移植 RT-Thread 到 LoongArch64">移植 RT-Thread 到 LoongArch64</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/valgrind/> Valgrind</a><ul><li><a class=list-link href=/posts/valgrind/libvex/ title="libVEX 简介">libVEX 简介</a></li><li><a class=list-link href=/posts/valgrind/loongarch/ title="Valgrind for LoongArch">Valgrind for LoongArch</a></li><li><a class=list-link href=/posts/valgrind/valgrind/ title="Valgrind 简介">Valgrind 简介</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/> 内核</a><ul class=active><li><a class=list-link href=/posts/kernel/kernel/ title="Linux 内核学习笔记">Linux 内核学习笔记</a></li><li><a class=list-link href=/posts/kernel/todo/ title="TODO 列表">TODO 列表</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/memory/> 内存管理</a><ul><li><a class=list-link href=/posts/kernel/memory/bootmem/ title="bootmem 分配器">bootmem 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/per-cpu/ title="per-CPU 高速缓存">per-CPU 高速缓存</a></li><li><a class=list-link href=/posts/kernel/memory/slab/ title="slab 分配器">slab 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/buddy-system/ title=伙伴系统>伙伴系统</a></li><li><a class=list-link href=/posts/kernel/memory/address/ title=内存寻址>内存寻址</a></li><li><a class=list-link href=/posts/kernel/memory/map/ title=内存映射>内存映射</a></li><li><a class=list-link href=/posts/kernel/memory/model/ title=内存模型>内存模型</a></li><li><a class=list-link href=/posts/kernel/memory/initialization/ title=内存管理初始化>内存管理初始化</a></li><li><a class=list-link href=/posts/kernel/memory/supplement/ title=内存管理补充>内存管理补充</a></li><li><a class=list-link href=/posts/kernel/memory/continuous/ title=连续页框的管理>连续页框的管理</a></li><li><a class=list-link href=/posts/kernel/memory/uncontinuous/ title=非连续页框的管理>非连续页框的管理</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/develop/> 开发</a><ul><li><a class=list-link href=/posts/kernel/develop/arch/ title=体系结构相关知识>体系结构相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/develop/ title=内核开发相关知识>内核开发相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/build/ title=内核编译和调试>内核编译和调试</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/data-structure/> 数据结构</a><ul class=active><li><a class=list-link href=/posts/kernel/data-structure/expansion/ title="GCC 扩展语法">GCC 扩展语法</a></li><li><a class=list-link href=/posts/kernel/data-structure/bitmap/ title=内核位图>内核位图</a></li><li><a class=list-link href=/posts/kernel/data-structure/radix-tree/ title=内核基数树>内核基数树</a></li><li><a class=list-link href=/posts/kernel/data-structure/hlist/ title=内核散列表>内核散列表</a></li><li><a class=list-link href=/posts/kernel/data-structure/rbtree/ title=内核红黑树>内核红黑树</a></li><li><a class=list-link href=/posts/kernel/data-structure/list/ title=内核链表>内核链表</a></li><li><a class="active list-link" href=/posts/kernel/data-structure/kfifo/ title=内核队列>内核队列</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/miscellaneous/> 杂项</a><ul><li><a class=list-link href=/posts/kernel/miscellaneous/dynamic-debug/ title=动态调试>动态调试</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/macros-pitfalls/ title=宏的陷阱和使用技巧>宏的陷阱和使用技巧</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/predefined-macros/ title=预定义宏>预定义宏</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/introduction/> 简介</a><ul><li><a class=list-link href=/posts/kernel/introduction/basis/ title="Linux 内核基础">Linux 内核基础</a></li><li><a class=list-link href=/posts/kernel/introduction/common/ title="Linux 内核常见函数/宏">Linux 内核常见函数/宏</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/tips/> 技巧</a><ul><li><a class=list-link href=/posts/tips/github/ title="Github 模板">Github 模板</a></li><li><a class=list-link href=/posts/tips/generic-entry/ title="Linux 中断和系统调用通用框架">Linux 中断和系统调用通用框架</a></li><li><a class=list-link href=/posts/tips/mips-boot/ title="Linux/MIPS 启动">Linux/MIPS 启动</a></li><li><a class=list-link href=/posts/tips/shell-redirect/ title="shell 重定向小技巧">shell 重定向小技巧</a></li><li><a class=list-link href=/posts/tips/hugo/ title="使用 Hugo 搭建个人博客">使用 Hugo 搭建个人博客</a></li><li><a class=list-link href=/posts/tips/zsh/ title="使用 Zsh">使用 Zsh</a></li><li><a class=list-link href=/posts/tips/linux-version/ title="查看 Linux 版本">查看 Linux 版本</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/virtualization/> 虚拟化</a><ul><li><a class=list-link href=/posts/virtualization/kvm/ title="KVM 简介">KVM 简介</a></li><li><a class=list-link href=/posts/virtualization/qemu/ title="QEMU 简介">QEMU 简介</a></li></ul></li></div></ul></div></div></div></section><section class=content-section id=content-section><div class=content><div class="container p-0 read-area"><div class="hero-area col-sm-12" id=hero-area style=background-image:url(/images/default-hero_hu_1e630a6e35d8e16.jpg)></div><div class=page-content><div class="author-profile ms-auto align-self-lg-center"><img class=rounded-circle src=/images/author/octocat_hu_88b3a7924ca87a69.png alt="Author Image"><h5 class=author-name>FreeFlyingSheep</h5><p class=text-muted>Saturday, October 10, 2020 |
+8 分钟</p></div><div class=title><h1>内核队列</h1></div><div class=tags><ul style=padding-left:0><li><a href=/tags/linux-%E5%86%85%E6%A0%B8/ class="btn btn-sm btn-outline-info rounded">Linux 内核</a></li><li><a href=/tags/%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/ class="btn btn-sm btn-outline-info rounded">内核数据结构</a></li><li><a href=/tags/%E9%98%9F%E5%88%97/ class="btn btn-sm btn-outline-info rounded">队列</a></li></ul></div><div class=post-content id=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核队列。</p><h2 id=内核队列的使用>内核队列的使用</h2><p>内核通用队列的实现称为 <code>kfifo</code>，头文件为 <code>include/linux/kfifo.h</code>。</p><h3 id=创建队列>创建队列</h3><p>创建并初始化一个大小为 <code>size</code> 的 <code>kfifo</code>，使用 <code>gfp_mask</code> 分配内存（成功则返回 <code>0</code>，反之返回一个负数错误码）：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_alloc</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> size, <span style=color:#66d9ef>gfp_t</span> gfp_mask);
+</span></span></code></pre></div><p>创建并初始化一个 <code>kfifo</code> 对象，使用 <code>buffer</code> 指向的 <code>size</code> 大小的内存：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kfifo_init</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>buffer, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> size);
+</span></span></code></pre></div><p>静态声明 <code>kfifo</code>（不常用）：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#a6e22e>DECLARE_KFIFO</span>(name, size);
+</span></span><span style=display:flex><span><span style=color:#a6e22e>INIT_KFIFO</span>(name);
+</span></span></code></pre></div><p><strong>以上所有的 <code>size</code> 必须为 <code>2</code> 的幂。</strong></p><h3 id=插入队列数据>插入队列数据</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_in</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>from, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> len);
+</span></span></code></pre></div><p>该函数把 <code>from</code> 指针所指的 <code>len</code> 字节数据拷贝到 <code>fifo</code> 所指的队列中。如果成功，返回推入数据的字节大小。如果队列中的空闲字节小于 <code>len</code>，返回值可能小于 <code>len</code>，甚至会返回 <code>0</code>，这时意味着没有任何数据被推入。</p><h3 id=摘取队列数据>摘取队列数据</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_out</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>to, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> len);
+</span></span></code></pre></div><p>该函数从 <code>fifo</code> 所指向的队列中拷贝出长度为 <code>len</code> 字节的数据到 <code>to</code> 所指的缓冲中。如果成功，返回拷贝的数据长度。如果队列中数据大小小于 <code>len</code>，则该函数拷贝出的数据必然小于需要的数据大小。</p><p>当数据被摘取后，数据就不再存在于队列之中。这是队列操作的常用方式。不过如果仅仅想“偷窥”队列中的数据，而不真想删除它，可以使用下面的方法:</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_out_peek</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>to, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> len, <span style=color:#66d9ef>unsigned</span> offset);
+</span></span></code></pre></div><p>该函数和 <code>kffo_out()</code> 类似，但出口偏移不增加，而且摘取的数据仍然可被下次 <code>kfifo_out()</code> 获得。参数 <code>offset</code> 指向队列中的索引位置，如果该参数为 <code>0</code>，则读队列头。</p><h3 id=获取队列长度>获取队列长度</h3><p>获得用于存储 <code>kfifo</code> 队列的空间的总体大小：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_size</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo);
+</span></span></code></pre></div><p>获得 <code>kfifo</code> 队列中已推入的数据大小：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_len</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo);
+</span></span></code></pre></div><p>获得 <code>kfifo</code> 队列中还有多少可用空间：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_avail</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo);
+</span></span></code></pre></div><p><strong>以上所有函数的返回值以字节为单位。</strong></p><p>判断给定的 <code>kfifo</code> 是否为空的，若是则返回非 <code>0</code> 值，反之返回 <code>0</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_is_empty</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo);
+</span></span></code></pre></div><p>判断给定的 <code>kfifo</code> 是否为空的，若是则返回非 <code>0</code> 值，反之返回 <code>0</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_is_full</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo);
+</span></span></code></pre></div><h3 id=重置队列>重置队列</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kfifo_reset</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo);
+</span></span></code></pre></div><h3 id=撤销队列>撤销队列</h3><p>若通过 <code>kfifo_alloc()</code> 创建的队列，用下面的函数撤销：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kfifo_free</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo);
+</span></span></code></pre></div><p>若通过 <code>kfifo_init()</code> 创建的队列，需要手动释放相应的内存。</p><h3 id=队列使用实例>队列使用实例</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> kfifo fifo;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>int</span> ret;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> i;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> val;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 创建一个大小为 PAGE_SIZE 的队列 fifo
+</span></span></span><span style=display:flex><span>ret <span style=color:#f92672>=</span> <span style=color:#a6e22e>kfifo_alloc</span>(<span style=color:#f92672>&amp;</span>kifo, PAGE_SIZE, GFP_KERNEL);
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> (ret)
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> ret;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 将 [0,32) 压入到名为 fifo 的 kfifo 中
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>for</span>(i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; i <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>32</span>; i<span style=color:#f92672>++</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kfifo_in</span>(fifo, <span style=color:#f92672>&amp;</span>i, <span style=color:#66d9ef>sizeof</span>(i));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 查看队列的第一个元素
+</span></span></span><span style=display:flex><span>ret <span style=color:#f92672>=</span> <span style=color:#a6e22e>kfifo_out_peek</span>(fifo, <span style=color:#f92672>&amp;</span>val, <span style=color:#66d9ef>sizeof</span>(val), <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> (ret <span style=color:#f92672>!=</span> <span style=color:#66d9ef>sizeof</span>(val))
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#f92672>-</span>EINVAL;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>printk</span>(KERN_INFO <span style=color:#e6db74>&#34;%u</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>, val); <span style=color:#75715e>// 应该输出 0
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 摘取并打印 kfifo 中的所有元素
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>while</span> (<span style=color:#a6e22e>kfifo_avail</span>(fifo)) {
+</span></span><span style=display:flex><span>    ret <span style=color:#f92672>=</span> <span style=color:#a6e22e>kfifo_out</span>(fifo, <span style=color:#f92672>&amp;</span>val, <span style=color:#66d9ef>sizeof</span>(val));
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (ret <span style=color:#f92672>!=</span> <span style=color:#66d9ef>sizeof</span>(val))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#f92672>-</span>EINVAL;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_INFO <span style=color:#e6db74>&#34;%u</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>, val); <span style=color:#75715e>// 应该按序输出 0 到 31
+</span></span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h2 id=内核队列的实现>内核队列的实现</h2><p>内核队列的实现均位于 <code>kernel/kfifo.c</code> 和 <code>include/linux/kfifo.h</code>，下面列出常用函数/宏的实现。</p><h3 id=队列结构体的实现>队列结构体的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> kfifo {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>char</span> <span style=color:#f92672>*</span>buffer; <span style=color:#75715e>/* the buffer holding the data */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> size;     <span style=color:#75715e>/* the size of the allocated buffer */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> in;       <span style=color:#75715e>/* data is added at offset (in % size) */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> out;      <span style=color:#75715e>/* data is extracted from off. (out % size) */</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>显然，内核队列是一个循环队列。下面我们把 <code>in</code> 称为队尾指针，<code>out</code> 称为队头指针，<code>buffer</code> 视为缓冲区数组。</p><p>传统的队列存储的数据类型往往是已知的，入队、出队一个元素对应缓冲区数组下标加减 <code>1</code>。而为了通用性，内核队列把缓冲区数组声明为 <code>char</code> 类型，对应的入队、出队需要通过元素的大小来计算下标的值（如 <code>int</code> 类型的一个元素入队、出队对应缓冲区数组下标加减 <code>4</code>）。</p><p>既然是循环队列，就存在区分队满和队空的情况，传统的解决方法就几种：一是记录队列的元素个数或记录队列的总大小；二是牺牲一个存储单元来用作判断；三是通过一个额外的标志来判断队满或队空。此处采用了第一种方法，用 <code>size</code> 记录了缓冲区数组的大小。</p><h3 id=帮助函数宏的实现>帮助函数/宏的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* helper macro */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define __kfifo_initializer(s, b) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    (struct kfifo) { \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>        .size   = s, \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>        .in     = 0, \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>        .out    = 0, \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>        .buffer = b \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    }
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * __kfifo_add_out internal helper function for updating the out offset
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__kfifo_add_out</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo,
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> off)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>smp_mb</span>();
+</span></span><span style=display:flex><span>    fifo<span style=color:#f92672>-&gt;</span>out <span style=color:#f92672>+=</span> off;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * __kfifo_add_in internal helper function for updating the in offset
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__kfifo_add_in</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo,
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> off)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>smp_wmb</span>();
+</span></span><span style=display:flex><span>    fifo<span style=color:#f92672>-&gt;</span>in <span style=color:#f92672>+=</span> off;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * __kfifo_off internal helper function for calculating the index of a
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * given offeset
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>__kfifo_off</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> off)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> off <span style=color:#f92672>&amp;</span> (fifo<span style=color:#f92672>-&gt;</span>size <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__kfifo_in_data</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo,
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>from, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> len, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> off)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> l;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * Ensure that we sample the fifo-&gt;out index -before- we
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * start putting bytes into the kfifo.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>smp_mb</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    off <span style=color:#f92672>=</span> <span style=color:#a6e22e>__kfifo_off</span>(fifo, fifo<span style=color:#f92672>-&gt;</span>in <span style=color:#f92672>+</span> off);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* first put the data starting from fifo-&gt;in to buffer end */</span>
+</span></span><span style=display:flex><span>    l <span style=color:#f92672>=</span> <span style=color:#a6e22e>min</span>(len, fifo<span style=color:#f92672>-&gt;</span>size <span style=color:#f92672>-</span> off);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>memcpy</span>(fifo<span style=color:#f92672>-&gt;</span>buffer <span style=color:#f92672>+</span> off, from, l);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* then put the rest (if any) at the beginning of the buffer */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>memcpy</span>(fifo<span style=color:#f92672>-&gt;</span>buffer, from <span style=color:#f92672>+</span> l, len <span style=color:#f92672>-</span> l);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__kfifo_out_data</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo,
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>to, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> len, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> off)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> l;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * Ensure that we sample the fifo-&gt;in index -before- we
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * start removing bytes from the kfifo.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>smp_rmb</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    off <span style=color:#f92672>=</span> <span style=color:#a6e22e>__kfifo_off</span>(fifo, fifo<span style=color:#f92672>-&gt;</span>out <span style=color:#f92672>+</span> off);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* first get the data from fifo-&gt;out until the end of the buffer */</span>
+</span></span><span style=display:flex><span>    l <span style=color:#f92672>=</span> <span style=color:#a6e22e>min</span>(len, fifo<span style=color:#f92672>-&gt;</span>size <span style=color:#f92672>-</span> off);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>memcpy</span>(to, fifo<span style=color:#f92672>-&gt;</span>buffer <span style=color:#f92672>+</span> off, l);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* then get the rest (if any) from the beginning of the buffer */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>memcpy</span>(to <span style=color:#f92672>+</span> l, fifo<span style=color:#f92672>-&gt;</span>buffer, len <span style=color:#f92672>-</span> l);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><ul><li><code>__kfifo_initializer()</code>：静态初始化队列。</li><li><code>__kfifo_add_out()</code>：增加队头指针。</li><li><code>__kfifo_add_in()</code>：增加队尾指针。</li><li><code>__kfifo_off()</code>：计算 <code>in % size</code> 或 <code>out % size</code>。</li><li><code>__kfifo_in_data()</code>：从 <code>from</code> 拷贝 <code>len</code> 大小的数据到队列头部偏移 <code>off</code> 的位置。</li><li><code>__kfifo_out_data()</code>：从队列头部偏移 <code>off</code> 的位置拷贝 <code>len</code> 大小的数据到 <code>to</code>。</li></ul><p>这里先忽略 <code>smp_</code> 开头的函数，它们是内存屏障，我把内核队列作为介绍内存屏障的例子，见 <a href=/posts/kernel/todo>TODO</a>。</p><p>对于 <code>__kfifo_off()</code> 中的计算，其实是用了这么一个结论：如果 <code>m</code> 是 <code>2</code> 的幂，那么 <code>n % m</code> 等价于 <code>n & (m - 1)</code>。这个结论其实不难理解，我们来看一个简单的例子。假设所有的数占用 <code>8</code> 位，取 <code>m</code> 为 <code>4</code>，那么 <code>m</code> 的二进制为 <code>0000 0100</code>，<code>m - 1</code> 的二进制为 <code>0000 0011</code> 。取 <code>n</code> 为 <code>3</code>，即 <code>n</code> 的二进制为 <code>0000 0011</code>，那么 <code>n & (m - 1)</code> 的结果为 <code>0000 0011</code>。取 <code>n</code> 为 <code>5</code>，即 <code>n</code> 的二进制为 <code>0000 0101</code>，那么 <code>n & (m - 1)</code> 的结果为 <code>0000 0001</code>。不难发现 <code>n & (m - 1)</code> 的意义是把 <code>n</code> 的高位清零且低位不变，这和 <code>n % m</code> 是等价的（具体的数学证明显然不属于本学习笔记的范畴）。通过使用与运算来代替模运算，可以有效缩短运算时间。</p><p><code>__kfifo_in_data()</code> 和 <code>__kfifo_out_data()</code> 相对复杂一些。因为是循环队列，所以更要注意要缓冲区数组边界的判断。对于 <code>__kfifo_in_data()</code>，先是拷贝数据到队尾指针偏移处，若拷贝至数组尾部仍然不够，再拷贝剩下的内容到数组头部。对于 <code>__kfifo_out_data()</code>，先是从队头指针偏移处拷贝数据，若拷贝至数组尾部仍然不够，再从数组头部拷贝剩下的内容。此处的实现考虑了的偏移 <code>off</code> 和数据大小 <code>len</code>，而对应常规的入队、出队单个元素的操作，偏移 <code>off</code> 总为 <code>0</code>，且 <code>len</code> 总为单个元素的大小，这点可以从下面的<a href=#%e6%8f%92%e5%85%a5%e9%98%9f%e5%88%97%e6%95%b0%e6%8d%ae%e7%9a%84%e5%ae%9e%e7%8e%b0>插入队列数据的实现</a>和<a href=#%e6%91%98%e5%8f%96%e9%98%9f%e5%88%97%e6%95%b0%e6%8d%ae%e7%9a%84%e5%ae%9e%e7%8e%b0>摘取队列数据的实现</a>中看到。</p><h3 id=获取队列长度的实现>获取队列长度的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_size - returns the size of the fifo in bytes
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be used.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> __must_check <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_size</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> fifo<span style=color:#f92672>-&gt;</span>size;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_len - returns the number of used bytes in the FIFO
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be used.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_len</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>register</span> <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> out;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    out <span style=color:#f92672>=</span> fifo<span style=color:#f92672>-&gt;</span>out;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>smp_rmb</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> fifo<span style=color:#f92672>-&gt;</span>in <span style=color:#f92672>-</span> out;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_is_empty - returns true if the fifo is empty
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be used.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> __must_check <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_is_empty</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> fifo<span style=color:#f92672>-&gt;</span>in <span style=color:#f92672>==</span> fifo<span style=color:#f92672>-&gt;</span>out;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_is_full - returns true if the fifo is full
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be used.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> __must_check <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_is_full</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>kfifo_len</span>(fifo) <span style=color:#f92672>==</span> <span style=color:#a6e22e>kfifo_size</span>(fifo);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_avail - returns the number of bytes available in the FIFO
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be used.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> __must_check <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_avail</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>kfifo_size</span>(fifo) <span style=color:#f92672>-</span> <span style=color:#a6e22e>kfifo_len</span>(fifo);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=重置队列的实现>重置队列的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_reset - removes the entire FIFO contents
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be emptied.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kfifo_reset</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    fifo<span style=color:#f92672>-&gt;</span>in <span style=color:#f92672>=</span> fifo<span style=color:#f92672>-&gt;</span>out <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=创建队列的实现>创建队列的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * INIT_KFIFO - Initialize a kfifo declared by DECLARE_KFIFO
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @name: name of the declared kfifo datatype
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define INIT_KFIFO(name) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    name = __kfifo_initializer(sizeof(name##kfifo_buffer) - \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>                sizeof(struct kfifo), \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>                name##kfifo_buffer + sizeof(struct kfifo))
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * DEFINE_KFIFO - macro to define and initialize a kfifo
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @name: name of the declared kfifo datatype
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @size: size of the fifo buffer. Must be a power of two.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Note1: the macro can be used for global and local kfifo data type variables
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Note2: the macro creates two objects:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  A kfifo object with the given name and a buffer for the kfifo
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  object named name##kfifo_buffer
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define DEFINE_KFIFO(name, size) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    unsigned char name##kfifo_buffer[size]; \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    struct kfifo name = __kfifo_initializer(size, name##kfifo_buffer)
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>_kfifo_init</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>buffer,
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> size)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    fifo<span style=color:#f92672>-&gt;</span>buffer <span style=color:#f92672>=</span> buffer;
+</span></span><span style=display:flex><span>    fifo<span style=color:#f92672>-&gt;</span>size <span style=color:#f92672>=</span> size;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kfifo_reset</span>(fifo);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_init - initialize a FIFO using a preallocated buffer
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to assign the buffer
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @buffer: the preallocated buffer to be used.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @size: the size of the internal buffer, this has to be a power of 2.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kfifo_init</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>buffer, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> size)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* size must be a power of 2 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#f92672>!</span><span style=color:#a6e22e>is_power_of_2</span>(size));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>_kfifo_init</span>(fifo, buffer, size);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(kfifo_init);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_alloc - allocates a new FIFO internal buffer
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to assign then new buffer
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @size: the size of the buffer to be allocated, this have to be a power of 2.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @gfp_mask: get_free_pages mask, passed to kmalloc()
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This function dynamically allocates a new fifo internal buffer
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The size will be rounded-up to a power of 2.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The buffer will be release with kfifo_free().
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Return 0 if no error, otherwise the an error code
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_alloc</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> size, <span style=color:#66d9ef>gfp_t</span> gfp_mask)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>char</span> <span style=color:#f92672>*</span>buffer;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * round up to the next power of 2, since our &#39;let the indices
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * wrap&#39; technique works only in this case.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>is_power_of_2</span>(size)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(size <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0x80000000</span>);
+</span></span><span style=display:flex><span>        size <span style=color:#f92672>=</span> <span style=color:#a6e22e>roundup_pow_of_two</span>(size);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    buffer <span style=color:#f92672>=</span> <span style=color:#a6e22e>kmalloc</span>(size, gfp_mask);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>buffer) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>_kfifo_init</span>(fifo, NULL, <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#f92672>-</span>ENOMEM;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>_kfifo_init</span>(fifo, buffer, size);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(kfifo_alloc);
+</span></span></code></pre></div><h3 id=插入队列数据的实现>插入队列数据的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_in - puts some data into the FIFO
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be used.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @from: the data to be added.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @len: the length of the data to be added.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This function copies at most @len bytes from the @from buffer into
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * the FIFO depending on the free space, and returns the number of
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * bytes copied.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Note that with only one concurrent reader and one concurrent
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * writer, you don&#39;t need extra locking to use these functions.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_in</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>from,
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> len)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    len <span style=color:#f92672>=</span> <span style=color:#a6e22e>min</span>(<span style=color:#a6e22e>kfifo_avail</span>(fifo), len);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__kfifo_in_data</span>(fifo, from, len, <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__kfifo_add_in</span>(fifo, len);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> len;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(kfifo_in);
+</span></span></code></pre></div><h3 id=摘取队列数据的实现>摘取队列数据的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_out - gets some data from the FIFO
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be used.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @to: where the data must be copied.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @len: the size of the destination buffer.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This function copies at most @len bytes from the FIFO into the
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @to buffer and returns the number of copied bytes.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Note that with only one concurrent reader and one concurrent
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * writer, you don&#39;t need extra locking to use these functions.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_out</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>to, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> len)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    len <span style=color:#f92672>=</span> <span style=color:#a6e22e>min</span>(<span style=color:#a6e22e>kfifo_len</span>(fifo), len);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__kfifo_out_data</span>(fifo, to, len, <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__kfifo_add_out</span>(fifo, len);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> len;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(kfifo_out);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_out_peek - copy some data from the FIFO, but do not remove it
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be used.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @to: where the data must be copied.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @len: the size of the destination buffer.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @offset: offset into the fifo
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This function copies at most @len bytes at @offset from the FIFO
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * into the @to buffer and returns the number of copied bytes.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The data is not removed from the FIFO.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>kfifo_out_peek</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>to, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> len,
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>unsigned</span> offset)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    len <span style=color:#f92672>=</span> <span style=color:#a6e22e>min</span>(<span style=color:#a6e22e>kfifo_len</span>(fifo), len <span style=color:#f92672>+</span> offset);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__kfifo_out_data</span>(fifo, to, len, offset);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> len;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(kfifo_out_peek);
+</span></span></code></pre></div><h3 id=撤销队列的实现>撤销队列的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfifo_free - frees the FIFO internal buffer
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @fifo: the fifo to be freed.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kfifo_free</span>(<span style=color:#66d9ef>struct</span> kfifo <span style=color:#f92672>*</span>fifo)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kfree</span>(fifo<span style=color:#f92672>-&gt;</span>buffer);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>_kfifo_init</span>(fifo, NULL, <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(kfifo_free);
+</span></span></code></pre></div></div><div class="row ps-3 pe-3"><div class="col-md-6 share-buttons"><strong>分享:</strong>
+<a class="btn icon-button bg-facebook" href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fkfifo%2f" target=_blank><i class="fab fa-facebook"></i>
+</a><a class="btn icon-button bg-twitter" href="https://twitter.com/share?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fkfifo%2f&text=%e5%86%85%e6%a0%b8%e9%98%9f%e5%88%97&via=FreeFlyingSheep%20%e7%9a%84%e5%8d%9a%e5%ae%a2" target=_blank><i class="fab fa-twitter"></i>
+</a><a class="btn icon-button bg-reddit" href="https://reddit.com/submit?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fkfifo%2f&title=%e5%86%85%e6%a0%b8%e9%98%9f%e5%88%97" target=_blank><i class="fab fa-reddit"></i>
+</a><a class="btn icon-button bg-linkedin" href="https://www.linkedin.com/shareArticle?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fkfifo%2f&title=%e5%86%85%e6%a0%b8%e9%98%9f%e5%88%97" target=_blank><i class="fab fa-linkedin"></i>
+</a><a class="btn icon-button bg-whatsapp" href="https://api.whatsapp.com/send?text=%e5%86%85%e6%a0%b8%e9%98%9f%e5%88%97 https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fkfifo%2f" target=_blank><i class="fab fa-whatsapp"></i>
+</a><a class="btn icon-button" href="mailto:?subject=%e5%86%85%e6%a0%b8%e9%98%9f%e5%88%97&body=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fkfifo%2f" target=_blank><i class="fas fa-envelope-open-text"></i></a></div><div class="col-md-6 btn-improve-page"><a href=https://github.com/FreeFlyingSheep/FreeFlyingSheep.github.io/edit//content/posts/kernel/data-structure/kfifo.md title target=_blank rel=noopener><i class="fas fa-code-branch"></i>
+改善此页面</a></div></div><hr><div class="row next-prev-navigator"><div class="col-md-6 previous-article"><a href=/posts/kernel/data-structure/list/ title=内核链表 class="btn filled-button"><div><i class="fas fa-chevron-circle-left"></i> 上一篇</div><div class=next-prev-text>内核链表</div></a></div><div class="col-md-6 next-article"><a href=/posts/kernel/miscellaneous/dynamic-debug/ title=动态调试 class="btn filled-button"><div>下一篇 <i class="fas fa-chevron-circle-right"></i></div><div class=next-prev-text>动态调试</div></a></div></div><hr><script src=https://giscus.app/client.js data-repo=FreeFlyingSheep/FreeFlyingSheep.github.io data-repo-id=R_kgDORf53Rg data-category=Comments data-category-id=DIC_kwDORf53Rs4C325X data-mapping=url data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang crossorigin=anonymous async></script></div></div></div><a id=scroll-to-top class=btn type=button data-bs-toggle=tooltip data-bs-placement=left title="Scroll to top"><i class="fas fa-chevron-circle-up"></i></a></section><section class=toc-section id=toc-section><div class=toc-holder><h5 class="text-center ps-3">目录</h5><hr><div class=toc><nav id=TableOfContents><ul><li><a href=#内核队列的使用>内核队列的使用</a><ul><li><a href=#创建队列>创建队列</a></li><li><a href=#插入队列数据>插入队列数据</a></li><li><a href=#摘取队列数据>摘取队列数据</a></li><li><a href=#获取队列长度>获取队列长度</a></li><li><a href=#重置队列>重置队列</a></li><li><a href=#撤销队列>撤销队列</a></li><li><a href=#队列使用实例>队列使用实例</a></li></ul></li><li><a href=#内核队列的实现>内核队列的实现</a><ul><li><a href=#队列结构体的实现>队列结构体的实现</a></li><li><a href=#帮助函数宏的实现>帮助函数/宏的实现</a></li><li><a href=#获取队列长度的实现>获取队列长度的实现</a></li><li><a href=#重置队列的实现>重置队列的实现</a></li><li><a href=#创建队列的实现>创建队列的实现</a></li><li><a href=#插入队列数据的实现>插入队列数据的实现</a></li><li><a href=#摘取队列数据的实现>摘取队列数据的实现</a></li><li><a href=#撤销队列的实现>撤销队列的实现</a></li></ul></li></ul></nav></div></div></section></div><footer id=footer class="container-fluid text-center align-content-center footer pb-2"><div class="container pt-5"><div class="row text-start"><div class="col-md-4 col-sm-12"><h5>导航</h5><ul><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#about>关于</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#skills>技能</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#experiences>工作经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#education>教育经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#projects>参与项目</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#recent-posts>最近博文</a></li><li class=nav-item><a class=smooth-scroll href=/tags/>标签</a></li><li class=nav-item><a class=smooth-scroll href=/categories/>类别</a></li></ul></div><div class="col-md-4 col-sm-12"><h5>联系方式:</h5><ul><li><a href=mailto:chris.chenfeiyang@gmail.com target=_blank rel=noopener><span><i class="fas fa-envelope"></i></span> <span>chris.chenfeiyang@gmail.com</span></a></li><li><a href=https://github.com/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-github"></i></span> <span>FreeFlyingSheep</span></a></li><li><a href=https://www.linkedin.com/in/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-linkedin"></i></span> <span>FreeFlyingSheep</span></a></li></ul></div></div></div><hr><div class=container><p id=disclaimer><strong>免责声明:</strong> 本主题使用 MIT 许可证。本博客使用署名—非商业性使用 4.0 协议国际版（CC BY-NC 4.0）许可证。</p></div><hr><div class=container><div class="row text-start"><div class=col-md-4><a id=theme href=https://github.com/hugo-toha/toha target=_blank rel=noopener><img src=/images/theme-logo_hu_be7279b2506ad3f1.png alt="Toha Theme Logo">
+Toha</a></div><div class="col-md-4 text-center">© 2023 版权所有。</div><div class="col-md-4 text-end"><a id=hugo href=https://gohugo.io/ target=_blank rel=noopener>Powered by
+<img src=/images/hugo-logo.svg alt="Hugo Logo" height=18></a></div></div></div></footer><script src=/application.526b71351c36e243e2d7f272cedce3393c291461a3b0a49f877f3a3b4995291d.js integrity="sha256-UmtxNRw24kPi1/JyztzjOTwpFGGjsKSfh386O0mVKR0=" defer></script></body></html>

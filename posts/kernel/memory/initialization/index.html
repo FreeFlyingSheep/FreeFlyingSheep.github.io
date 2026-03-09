@@ -1,0 +1,507 @@
+<!doctype html><html lang=zh-cn><head><title>内存管理初始化</title><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=X-UA-Compatible content="ie=edge"><link rel=canonical href=https://FreeFlyingSheep.github.io/posts/kernel/memory/initialization/><link rel=stylesheet href=/application.12d69a55a3afe94646716f1bcc2804b35a0b575ba94febbb0ec6e47bd0bef25f.css integrity="sha256-EtaaVaOv6UZGcW8bzCgEs1oLV1upT+u7Dsbke9C+8l8="><link rel=icon type=image/png href=/images/site/favicon_hu_bf1264eea1001669.png><meta property="og:title" content="内存管理初始化"><meta property="og:type" content="website"><meta property="og:description" content="FreeFlyingSheep 的个人博客。"><meta property="og:image" content="https://FreeFlyingSheep.github.io/images/author/octocat.png"><meta property="og:url" content="https://FreeFlyingSheep.github.io/posts/kernel/memory/initialization/"><meta name=twitter:card content="summary"><meta name=twitter:title content="内存管理初始化"><meta name=twitter:description content="Linux 内核学习笔记系列，内存管理部分，简单介绍内存管理初始化。"><meta name=description content="内存管理初始化"><script async src="https://www.googletagmanager.com/gtag/js?id=G-FF4B2FQP4C"></script><script>var doNotTrack=!1;if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FF4B2FQP4C")}</script><script integrity="sha256-DO4ugzEwhTW1Id1UIWn0gUJWaebCYOypeTit6LW4QB4=">let theme=localStorage.getItem("theme-scheme")||localStorage.getItem("darkmode:color-scheme")||"light";theme==="system"&&(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?theme="dark":theme="light"),document.documentElement.setAttribute("data-theme",theme)</script></head><body class="type-posts kind-page" data-bs-spy=scroll data-bs-target=#TableOfContents data-bs-offset=80><div class="container-fluid bg-secondary wrapper"><nav class="navbar navbar-expand-xl top-navbar shadow" id=top-navbar><div class=container><button class="navbar-toggler navbar-light" id=sidebar-toggler type=button>
+<i data-feather=sidebar></i>
+</button>
+<a class=navbar-brand href=/><img src=/images/site/logo_hu_bf1264eea1001669.png id=logo alt=Logo>
+FreeFlyingSheep 的博客</a>
+<button class="navbar-toggler navbar-light" id=navbar-toggler type=button data-bs-toggle=collapse data-bs-target=#top-nav-items aria-label=menu>
+<i data-feather=menu></i></button><div class="collapse navbar-collapse dynamic-navbar" id=top-nav-items><ul class="nav navbar-nav ms-auto"><li class=nav-item><a class=nav-link href=/#home>主页</a></li><li class=nav-item><a class=nav-link href=/#about>关于</a></li><li class=nav-item><a class=nav-link href=/#skills>技能</a></li><li class=nav-item><a class=nav-link href=/#experiences>工作经历</a></li><li class=nav-item><a class=nav-link href=/#education>教育经历</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=navbarDropdown role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false>更多的</a><div class=dropdown-menu aria-labelledby=navbarDropdown><a class=dropdown-item href=/#projects>参与项目</a>
+<a class=dropdown-item href=/#recent-posts>最近博文</a></div></li><div id=top-navbar-divider></div><li class=nav-item><a class=nav-link id=blog-link href=/posts>博文</a></li><li class=nav-item><a class=nav-link id=note-link href=/notes>笔记</a></li><li class=nav-item><a class=nav-link href=/tags/>标签</a></li><li class=nav-item><a class=nav-link href=/categories/>类别</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=themeSelector role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false><img id=navbar-theme-icon-svg class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme"></a><div id=themeMenu class="dropdown-menu dropdown-menu-icons-only" aria-labelledby=themeSelector><a class="dropdown-item nav-link" href=# data-scheme=light><img class=theme-icon src=/icons/sun-svgrepo-com.svg width=20 alt="Light Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=dark><img class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=system><img class=theme-icon src=/icons/computer-svgrepo-com.svg width=20 alt="System Theme"></a></div></li></ul></div></div><img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=main-logo alt=Logo>
+<img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=inverted-logo alt="Inverted Logo"></nav><section class=sidebar-section id=sidebar-section><div class=sidebar-holder><div class=sidebar id=sidebar><form class=mx-auto method=get action=/%20search><input type=text name=keyword placeholder data-search id=search-box></form><div class=sidebar-tree><ul class=tree id=tree><li id=list-heading><a href=/%20/posts/ data-filter=all>博文</a></li><div class=subtree><li><a class=list-link href=/posts/introduction/ title=引言>引言</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/> AI</a><ul><li><a class=list-link href=/posts/ai/ai/ title="AI 学习笔记">AI 学习笔记</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/nlp/> NLP</a><ul><li><a class=list-link href=/posts/ai/nlp/basic/ title="NLP 基础概念">NLP 基础概念</a></li><li><a class=list-link href=/posts/ai/nlp/core/ title="NLP 系统">NLP 系统</a></li><li><a class=list-link href=/posts/ai/nlp/supplement/ title="NLP 补充内容">NLP 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/llm/> LLM</a><ul><li><a class=list-link href=/posts/ai/llm/basic/ title="LLM 基本概念">LLM 基本概念</a></li><li><a class=list-link href=/posts/ai/llm/usage/ title="LLM 的使用">LLM 的使用</a></li><li><a class=list-link href=/posts/ai/llm/supplement/ title="LLM 补充内容">LLM 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/agent/> Agent</a><ul><li><a class=list-link href=/posts/ai/agent/basic/ title="Agent 基本概念">Agent 基本概念</a></li><li><a class=list-link href=/posts/ai/agent/mcp/ title="MCP 相关概念">MCP 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/rag/ title="RAG 相关概念">RAG 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/demo/ title="股票分析 Demo">股票分析 Demo</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/git/> Git</a><ul><li><a class=list-link href=/posts/git/command/ title="Git 常用命令">Git 常用命令</a></li><li><a class=list-link href=/posts/git/patch/ title="Git 打补丁">Git 打补丁</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/linux/> Linux</a><ul><li><a class=list-link href=/posts/linux/arch/ title="安装 Arch Linux">安装 Arch Linux</a></li><li><a class=list-link href=/posts/linux/wsl/ title="安装 WSL">安装 WSL</a></li><li><a class=list-link href=/posts/linux/lfs/ title="构建 LFS 系统">构建 LFS 系统</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/loongarch/> LoongArch</a><ul><li><a class=list-link href=/posts/loongarch/assembly/ title="LoongArch 汇编">LoongArch 汇编</a></li><li><a class=list-link href=/posts/loongarch/develop/ title="在 LoongArch 上开发">在 LoongArch 上开发</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/mips/> MIPS</a><ul><li><a class=list-link href=/posts/mips/see-mips-run/ title="MIPS 体系结构">MIPS 体系结构</a></li><li><a class=list-link href=/posts/mips/assembly/ title="MIPS 汇编">MIPS 汇编</a></li><li><a class=list-link href=/posts/mips/supplement/ title=MIPS（补充内容）>MIPS（补充内容）</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/openstack/> OpenStack</a><ul><li><a class=list-link href=/posts/openstack/introduction/ title="OpenStack 简介">OpenStack 简介</a></li><li><a class=list-link href=/posts/openstack/lemote/ title="在龙芯上移植 OpenStack">在龙芯上移植 OpenStack</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/rt-thread/> RT-Thread</a><ul><li><a class=list-link href=/posts/rt-thread/loongarch32/ title="移植 RT-Thread 到 LoongArch32">移植 RT-Thread 到 LoongArch32</a></li><li><a class=list-link href=/posts/rt-thread/loongarch64/ title="移植 RT-Thread 到 LoongArch64">移植 RT-Thread 到 LoongArch64</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/valgrind/> Valgrind</a><ul><li><a class=list-link href=/posts/valgrind/libvex/ title="libVEX 简介">libVEX 简介</a></li><li><a class=list-link href=/posts/valgrind/loongarch/ title="Valgrind for LoongArch">Valgrind for LoongArch</a></li><li><a class=list-link href=/posts/valgrind/valgrind/ title="Valgrind 简介">Valgrind 简介</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/> 内核</a><ul class=active><li><a class=list-link href=/posts/kernel/kernel/ title="Linux 内核学习笔记">Linux 内核学习笔记</a></li><li><a class=list-link href=/posts/kernel/todo/ title="TODO 列表">TODO 列表</a></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/memory/> 内存管理</a><ul class=active><li><a class=list-link href=/posts/kernel/memory/bootmem/ title="bootmem 分配器">bootmem 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/per-cpu/ title="per-CPU 高速缓存">per-CPU 高速缓存</a></li><li><a class=list-link href=/posts/kernel/memory/slab/ title="slab 分配器">slab 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/buddy-system/ title=伙伴系统>伙伴系统</a></li><li><a class=list-link href=/posts/kernel/memory/address/ title=内存寻址>内存寻址</a></li><li><a class=list-link href=/posts/kernel/memory/map/ title=内存映射>内存映射</a></li><li><a class=list-link href=/posts/kernel/memory/model/ title=内存模型>内存模型</a></li><li><a class="active list-link" href=/posts/kernel/memory/initialization/ title=内存管理初始化>内存管理初始化</a></li><li><a class=list-link href=/posts/kernel/memory/supplement/ title=内存管理补充>内存管理补充</a></li><li><a class=list-link href=/posts/kernel/memory/continuous/ title=连续页框的管理>连续页框的管理</a></li><li><a class=list-link href=/posts/kernel/memory/uncontinuous/ title=非连续页框的管理>非连续页框的管理</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/develop/> 开发</a><ul><li><a class=list-link href=/posts/kernel/develop/arch/ title=体系结构相关知识>体系结构相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/develop/ title=内核开发相关知识>内核开发相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/build/ title=内核编译和调试>内核编译和调试</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/data-structure/> 数据结构</a><ul><li><a class=list-link href=/posts/kernel/data-structure/expansion/ title="GCC 扩展语法">GCC 扩展语法</a></li><li><a class=list-link href=/posts/kernel/data-structure/bitmap/ title=内核位图>内核位图</a></li><li><a class=list-link href=/posts/kernel/data-structure/radix-tree/ title=内核基数树>内核基数树</a></li><li><a class=list-link href=/posts/kernel/data-structure/hlist/ title=内核散列表>内核散列表</a></li><li><a class=list-link href=/posts/kernel/data-structure/rbtree/ title=内核红黑树>内核红黑树</a></li><li><a class=list-link href=/posts/kernel/data-structure/list/ title=内核链表>内核链表</a></li><li><a class=list-link href=/posts/kernel/data-structure/kfifo/ title=内核队列>内核队列</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/miscellaneous/> 杂项</a><ul><li><a class=list-link href=/posts/kernel/miscellaneous/dynamic-debug/ title=动态调试>动态调试</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/macros-pitfalls/ title=宏的陷阱和使用技巧>宏的陷阱和使用技巧</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/predefined-macros/ title=预定义宏>预定义宏</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/introduction/> 简介</a><ul><li><a class=list-link href=/posts/kernel/introduction/basis/ title="Linux 内核基础">Linux 内核基础</a></li><li><a class=list-link href=/posts/kernel/introduction/common/ title="Linux 内核常见函数/宏">Linux 内核常见函数/宏</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/tips/> 技巧</a><ul><li><a class=list-link href=/posts/tips/github/ title="Github 模板">Github 模板</a></li><li><a class=list-link href=/posts/tips/generic-entry/ title="Linux 中断和系统调用通用框架">Linux 中断和系统调用通用框架</a></li><li><a class=list-link href=/posts/tips/mips-boot/ title="Linux/MIPS 启动">Linux/MIPS 启动</a></li><li><a class=list-link href=/posts/tips/shell-redirect/ title="shell 重定向小技巧">shell 重定向小技巧</a></li><li><a class=list-link href=/posts/tips/hugo/ title="使用 Hugo 搭建个人博客">使用 Hugo 搭建个人博客</a></li><li><a class=list-link href=/posts/tips/zsh/ title="使用 Zsh">使用 Zsh</a></li><li><a class=list-link href=/posts/tips/linux-version/ title="查看 Linux 版本">查看 Linux 版本</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/virtualization/> 虚拟化</a><ul><li><a class=list-link href=/posts/virtualization/kvm/ title="KVM 简介">KVM 简介</a></li><li><a class=list-link href=/posts/virtualization/qemu/ title="QEMU 简介">QEMU 简介</a></li></ul></li></div></ul></div></div></div></section><section class=content-section id=content-section><div class=content><div class="container p-0 read-area"><div class="hero-area col-sm-12" id=hero-area style=background-image:url(/images/default-hero_hu_1e630a6e35d8e16.jpg)></div><div class=page-content><div class="author-profile ms-auto align-self-lg-center"><img class=rounded-circle src=/images/author/octocat_hu_88b3a7924ca87a69.png alt="Author Image"><h5 class=author-name>FreeFlyingSheep</h5><p class=text-muted>Monday, April 26, 2021 |
+8 分钟</p></div><div class=title><h1>内存管理初始化</h1></div><div class=tags><ul style=padding-left:0><li><a href=/tags/linux-%E5%86%85%E6%A0%B8/ class="btn btn-sm btn-outline-info rounded">Linux 内核</a></li><li><a href=/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/ class="btn btn-sm btn-outline-info rounded">内存管理</a></li><li><a href=/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E5%88%9D%E5%A7%8B%E5%8C%96/ class="btn btn-sm btn-outline-info rounded">内存管理初始化</a></li></ul></div><div class=post-content id=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，内存管理部分，简单介绍内存管理初始化。</p><h2 id=内存管理初始化简介>内存管理初始化简介</h2><p>体系结构相关的部分只考虑 x86-32 架构。</p><p>初始化相关的操作总是从 <code>start_kernel()</code> 开始看起，与内存管理初始化相关的流程如下（图片来源于 PLKA）：</p><p><img src=/images/kernel/memory/start_kernel.png alt=start_kernel()></p><p><code>start_kernel()</code> 函数位于 <code>init/main.c</code>。</p><h2 id=setup_arch><code>setup_arch()</code></h2><p><code>setup_arch()</code> 的流程如下（图片来源于 PLKA）：</p><p><img src=/images/kernel/memory/setup_arch.png alt=setup_arch()></p><p><code>setup_arch()</code> 函数位于 <code>arch/x86/kernel/setup.c</code>。</p><p>这部分内容在内核中经常被重构，导致不同内核版本间差异较大。事实上，我所查看的源码版本虽然与 PLKA 指示的内核版本很接近，但图中的很多函数已经重构了。</p><h3 id=machine_specific_memory_setup><code>machine_specific_memory_setup()</code></h3><p>直接搜索找不到 <code>machine_specific_memory_setup()</code> 函数，该函数应该已经被重构，推测功能接近的函数为 <code>setup_memory_map()</code>。</p><p>x86-32 架构使用 BIOS 的 e820 功能来探测物理内存。</p><p>在 <code>arch/x86/kernel/e820.c</code> 中，定义了 <code>char *__init default_machine_specific_memory_setup(void)</code> 函数，这个函数在 <code>arch/x86/kernel/x86_init.c</code> 中被赋值给了 <code>resources.memory_setup</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The platform setup functions are preset with the default functions
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * for standard PC hardware.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> x86_init_ops x86_init __initdata <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    .resources <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>        .probe_roms         <span style=color:#f92672>=</span> x86_init_noop,
+</span></span><span style=display:flex><span>        .reserve_resources  <span style=color:#f92672>=</span> reserve_standard_io_resources,
+</span></span><span style=display:flex><span>        .memory_setup       <span style=color:#f92672>=</span> default_machine_specific_memory_setup,
+</span></span><span style=display:flex><span>    },
+</span></span><span style=display:flex><span>    ...
+</span></span></code></pre></div><p>之后在 <code>setup_memory_map()</code> 函数中被调用，而 <code>setup_memory_map()</code> 函数在 <code>setup_arch()</code> 中被调用。</p><p><code>arch/x86/kernel/e820.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>setup_memory_map</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>char</span> <span style=color:#f92672>*</span>who;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    who <span style=color:#f92672>=</span> x86_init.resources.<span style=color:#a6e22e>memory_setup</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>memcpy</span>(<span style=color:#f92672>&amp;</span>e820_saved, <span style=color:#f92672>&amp;</span>e820, <span style=color:#66d9ef>sizeof</span>(<span style=color:#66d9ef>struct</span> e820map));
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_INFO <span style=color:#e6db74>&#34;BIOS-provided physical RAM map:</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>);
+</span></span><span style=display:flex><span><span style=color:#a6e22e>e820_print_map</span>(who);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=parse_early_param><code>parse_early_param()</code></h3><p>内核的命令行参数可能有与内存管理相关的选项，因此把 <code>parse_early_param()</code> 也视为内存管理初始化的一部分。</p><p><code>parse_early_param()</code> 函数首先在 <code>setup_arch()</code> 函数中调用，虽然之后 <code>start_kernel()</code> 也会调用它。该函数的定义位于 <code>init/main.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* Arch code calls this early on, or if not, just before other parsing. */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>parse_early_param</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>static</span> __initdata <span style=color:#66d9ef>int</span> done <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>static</span> __initdata <span style=color:#66d9ef>char</span> tmp_cmdline[COMMAND_LINE_SIZE];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (done)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* All fall through to do_early_param. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>strlcpy</span>(tmp_cmdline, boot_command_line, COMMAND_LINE_SIZE);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>parse_early_options</span>(tmp_cmdline);
+</span></span><span style=display:flex><span>    done <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>该函数调用 <code>init/main.c</code> 中的 <code>parse_early_options()</code>，通过 <code>parse_args()</code> 函数处理（<code>parse_args()</code> 细节不展开了）：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>parse_early_options</span>(<span style=color:#66d9ef>char</span> <span style=color:#f92672>*</span>cmdline)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>parse_args</span>(<span style=color:#e6db74>&#34;early options&#34;</span>, cmdline, NULL, <span style=color:#ae81ff>0</span>, do_early_param);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=setup_memory><code>setup_memory()</code></h3><p>该函数在当前版本内核源码里已经找不到了，推测改名为了 <code>initmem_init()</code> 和 ，UMA 和 NUMA 版本分别放置于 <code>arch/x86/mm/init_32.c</code> 和 <code>arch/x86/mm/numa_32.c</code>。</p><p><code>arch/x86/mm/init_32.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#ifndef CONFIG_NEED_MULTIPLE_NODES
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>initmem_init</span>(<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> start_pfn, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> end_pfn,
+</span></span><span style=display:flex><span>                                <span style=color:#66d9ef>int</span> acpi, <span style=color:#66d9ef>int</span> k8)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_HIGHMEM
+</span></span></span><span style=display:flex><span>    highstart_pfn <span style=color:#f92672>=</span> highend_pfn <span style=color:#f92672>=</span> max_pfn;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (max_pfn <span style=color:#f92672>&gt;</span> max_low_pfn)
+</span></span><span style=display:flex><span>        highstart_pfn <span style=color:#f92672>=</span> max_low_pfn;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>e820_register_active_regions</span>(<span style=color:#ae81ff>0</span>, <span style=color:#ae81ff>0</span>, highend_pfn);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>sparse_memory_present_with_active_regions</span>(<span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_NOTICE <span style=color:#e6db74>&#34;%ldMB HIGHMEM available.</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>pages_to_mb</span>(highend_pfn <span style=color:#f92672>-</span> highstart_pfn));
+</span></span><span style=display:flex><span>    num_physpages <span style=color:#f92672>=</span> highend_pfn;
+</span></span><span style=display:flex><span>    high_memory <span style=color:#f92672>=</span> (<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>) <span style=color:#a6e22e>__va</span>(highstart_pfn <span style=color:#f92672>*</span> PAGE_SIZE <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>) <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>e820_register_active_regions</span>(<span style=color:#ae81ff>0</span>, <span style=color:#ae81ff>0</span>, max_low_pfn);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>sparse_memory_present_with_active_regions</span>(<span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>    num_physpages <span style=color:#f92672>=</span> max_low_pfn;
+</span></span><span style=display:flex><span>    high_memory <span style=color:#f92672>=</span> (<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>) <span style=color:#a6e22e>__va</span>(max_low_pfn <span style=color:#f92672>*</span> PAGE_SIZE <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>) <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_FLATMEM
+</span></span></span><span style=display:flex><span>    max_mapnr <span style=color:#f92672>=</span> num_physpages;
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>    __vmalloc_start_set <span style=color:#f92672>=</span> true;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_NOTICE <span style=color:#e6db74>&#34;%ldMB LOWMEM available.</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>pages_to_mb</span>(max_low_pfn));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>setup_bootmem_allocator</span>();
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif </span><span style=color:#75715e>/* !CONFIG_NEED_MULTIPLE_NODES */</span><span style=color:#75715e>
+</span></span></span></code></pre></div><p><code>arch/x86/mm/numa_32.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>initmem_init</span>(<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> start_pfn, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> end_pfn,
+</span></span><span style=display:flex><span>                                <span style=color:#66d9ef>int</span> acpi, <span style=color:#66d9ef>int</span> k8)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> nid;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>long</span> kva_target_pfn;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * When mapping a NUMA machine we allocate the node_mem_map arrays
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * from node local memory.  They are then mapped directly into KVA
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * between zone normal and vmalloc space.  Calculate the size of
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * this space and use it to adjust the boundary between ZONE_NORMAL
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * and ZONE_HIGHMEM.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>get_memcfg_numa</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    kva_pages <span style=color:#f92672>=</span> <span style=color:#a6e22e>roundup</span>(<span style=color:#a6e22e>calculate_numa_remap_pages</span>(), PTRS_PER_PTE);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    kva_target_pfn <span style=color:#f92672>=</span> <span style=color:#a6e22e>round_down</span>(max_low_pfn <span style=color:#f92672>-</span> kva_pages, PTRS_PER_PTE);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>do</span> {
+</span></span><span style=display:flex><span>        kva_start_pfn <span style=color:#f92672>=</span> <span style=color:#a6e22e>find_e820_area</span>(kva_target_pfn<span style=color:#f92672>&lt;&lt;</span>PAGE_SHIFT,
+</span></span><span style=display:flex><span>                    max_low_pfn<span style=color:#f92672>&lt;&lt;</span>PAGE_SHIFT,
+</span></span><span style=display:flex><span>                    kva_pages<span style=color:#f92672>&lt;&lt;</span>PAGE_SHIFT,
+</span></span><span style=display:flex><span>                    PTRS_PER_PTE<span style=color:#f92672>&lt;&lt;</span>PAGE_SHIFT) <span style=color:#f92672>&gt;&gt;</span> PAGE_SHIFT;
+</span></span><span style=display:flex><span>        kva_target_pfn <span style=color:#f92672>-=</span> PTRS_PER_PTE;
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>while</span> (kva_start_pfn <span style=color:#f92672>==</span> <span style=color:#f92672>-</span><span style=color:#ae81ff>1UL</span> <span style=color:#f92672>&amp;&amp;</span> kva_target_pfn <span style=color:#f92672>&gt;</span> min_low_pfn);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (kva_start_pfn <span style=color:#f92672>==</span> <span style=color:#f92672>-</span><span style=color:#ae81ff>1UL</span>)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>panic</span>(<span style=color:#e6db74>&#34;Can not get kva space</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_INFO <span style=color:#e6db74>&#34;kva_start_pfn ~ %lx max_low_pfn ~ %lx</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>        kva_start_pfn, max_low_pfn);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_INFO <span style=color:#e6db74>&#34;max_pfn = %lx</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>, max_pfn);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* avoid clash with initrd */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>reserve_early</span>(kva_start_pfn<span style=color:#f92672>&lt;&lt;</span>PAGE_SHIFT,
+</span></span><span style=display:flex><span>              (kva_start_pfn <span style=color:#f92672>+</span> kva_pages)<span style=color:#f92672>&lt;&lt;</span>PAGE_SHIFT,
+</span></span><span style=display:flex><span>             <span style=color:#e6db74>&#34;KVA PG&#34;</span>);
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_HIGHMEM
+</span></span></span><span style=display:flex><span>    highstart_pfn <span style=color:#f92672>=</span> highend_pfn <span style=color:#f92672>=</span> max_pfn;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (max_pfn <span style=color:#f92672>&gt;</span> max_low_pfn)
+</span></span><span style=display:flex><span>        highstart_pfn <span style=color:#f92672>=</span> max_low_pfn;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_NOTICE <span style=color:#e6db74>&#34;%ldMB HIGHMEM available.</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>           <span style=color:#a6e22e>pages_to_mb</span>(highend_pfn <span style=color:#f92672>-</span> highstart_pfn));
+</span></span><span style=display:flex><span>    num_physpages <span style=color:#f92672>=</span> highend_pfn;
+</span></span><span style=display:flex><span>    high_memory <span style=color:#f92672>=</span> (<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>) <span style=color:#a6e22e>__va</span>(highstart_pfn <span style=color:#f92672>*</span> PAGE_SIZE <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>) <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span>    num_physpages <span style=color:#f92672>=</span> max_low_pfn;
+</span></span><span style=display:flex><span>    high_memory <span style=color:#f92672>=</span> (<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>) <span style=color:#a6e22e>__va</span>(max_low_pfn <span style=color:#f92672>*</span> PAGE_SIZE <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>) <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_NOTICE <span style=color:#e6db74>&#34;%ldMB LOWMEM available.</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>pages_to_mb</span>(max_low_pfn));
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_DEBUG <span style=color:#e6db74>&#34;max_low_pfn = %lx, highstart_pfn = %lx</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>            max_low_pfn, highstart_pfn);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_DEBUG <span style=color:#e6db74>&#34;Low memory ends at vaddr %08lx</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>            (ulong) <span style=color:#a6e22e>pfn_to_kaddr</span>(max_low_pfn));
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>for_each_online_node</span>(nid) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>init_remap_allocator</span>(nid);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>allocate_pgdat</span>(nid);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>remap_numa_kva</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(KERN_DEBUG <span style=color:#e6db74>&#34;High memory starts at vaddr %08lx</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>            (ulong) <span style=color:#a6e22e>pfn_to_kaddr</span>(highstart_pfn));
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>for_each_online_node</span>(nid)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>propagate_e820_map_node</span>(nid);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>for_each_online_node</span>(nid) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>memset</span>(<span style=color:#a6e22e>NODE_DATA</span>(nid), <span style=color:#ae81ff>0</span>, <span style=color:#66d9ef>sizeof</span>(<span style=color:#66d9ef>struct</span> pglist_data));
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>NODE_DATA</span>(nid)<span style=color:#f92672>-&gt;</span>node_id <span style=color:#f92672>=</span> nid;
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifndef CONFIG_NO_BOOTMEM
+</span></span></span><span style=display:flex><span>        <span style=color:#a6e22e>NODE_DATA</span>(nid)<span style=color:#f92672>-&gt;</span>bdata <span style=color:#f92672>=</span> <span style=color:#f92672>&amp;</span>bootmem_node_data[nid];
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>setup_bootmem_allocator</span>();
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>该函数主要用于确定物理页的数目，然后初始化 bootmem 分配器，bootmem 分配器的具体细节见 <a href=/posts/kernel/memory/bootmem>bootmem 分配器</a>。</p><h3 id=paging_init><code>paging_init()</code></h3><p><code>paging_init()</code> 函数位于 <code>arch/x86/mm/init_32.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * paging_init() sets up the page tables - note that the first 8MB are
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * already mapped by head.S.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This routines also unmaps the page at virtual kernel address 0, so
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * that we can trap those pesky NULL-reference errors in the kernel.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>paging_init</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>pagetable_init</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__flush_tlb_all</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kmap_init</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * NOTE: at this point the bootmem allocator is fully available.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>sparse_init</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>zone_sizes_init</span>();
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>该函数会调用 <code>pagetable_init</code> 来确保直接映射的地址空间的物理内存被初始化：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_HIGHMEM
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>permanent_kmaps_init</span>(<span style=color:#66d9ef>pgd_t</span> <span style=color:#f92672>*</span>pgd_base)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> vaddr;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>pgd_t</span> <span style=color:#f92672>*</span>pgd;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>pud_t</span> <span style=color:#f92672>*</span>pud;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>pmd_t</span> <span style=color:#f92672>*</span>pmd;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>pte_t</span> <span style=color:#f92672>*</span>pte;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    vaddr <span style=color:#f92672>=</span> PKMAP_BASE;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>page_table_range_init</span>(vaddr, vaddr <span style=color:#f92672>+</span> PAGE_SIZE<span style=color:#f92672>*</span>LAST_PKMAP, pgd_base);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    pgd <span style=color:#f92672>=</span> swapper_pg_dir <span style=color:#f92672>+</span> <span style=color:#a6e22e>pgd_index</span>(vaddr);
+</span></span><span style=display:flex><span>    pud <span style=color:#f92672>=</span> <span style=color:#a6e22e>pud_offset</span>(pgd, vaddr);
+</span></span><span style=display:flex><span>    pmd <span style=color:#f92672>=</span> <span style=color:#a6e22e>pmd_offset</span>(pud, vaddr);
+</span></span><span style=display:flex><span>    pte <span style=color:#f92672>=</span> <span style=color:#a6e22e>pte_offset_kernel</span>(pmd, vaddr);
+</span></span><span style=display:flex><span>    pkmap_page_table <span style=color:#f92672>=</span> pte;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>permanent_kmaps_init</span>(<span style=color:#66d9ef>pgd_t</span> <span style=color:#f92672>*</span>pgd_base)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif </span><span style=color:#75715e>/* CONFIG_HIGHMEM */</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>pagetable_init</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>pgd_t</span> <span style=color:#f92672>*</span>pgd_base <span style=color:#f92672>=</span> swapper_pg_dir;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>permanent_kmaps_init</span>(pgd_base);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这部分的细节太多，我不打算深入看了。</p><h3 id=zone_sizes_init><code>zone_sizes_init()</code></h3><p>可以看到，在当前版本，该函数的调用者变成了 <code>paging_init()</code> 函数，而非 <code>setup_arch()</code> 函数。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>zone_sizes_init</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> max_zone_pfns[MAX_NR_ZONES];
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>memset</span>(max_zone_pfns, <span style=color:#ae81ff>0</span>, <span style=color:#66d9ef>sizeof</span>(max_zone_pfns));
+</span></span><span style=display:flex><span>    max_zone_pfns[ZONE_DMA] <span style=color:#f92672>=</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>virt_to_phys</span>((<span style=color:#66d9ef>char</span> <span style=color:#f92672>*</span>)MAX_DMA_ADDRESS) <span style=color:#f92672>&gt;&gt;</span> PAGE_SHIFT;
+</span></span><span style=display:flex><span>    max_zone_pfns[ZONE_NORMAL] <span style=color:#f92672>=</span> max_low_pfn;
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_HIGHMEM
+</span></span></span><span style=display:flex><span>    max_zone_pfns[ZONE_HIGHMEM] <span style=color:#f92672>=</span> highend_pfn;
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>free_area_init_nodes</span>(max_zone_pfns);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><code>add_active_range()</code> 对可用的物理内存建立一个相对简单的列表。但该函数已经不在 <code>zone_sizes_init()</code> 中被调用了，搜索后发现该函数在 <code>initmem_init()</code> 中已经被调用了，函数调用链是 <code>initmem_init() -> e820_register_active_regions() -> add_active_range()</code>。</p><p><code>free_area_init_nodes()</code> 它使用之前建立的列表来建立完备的内核数据结构。该函数是体系结构无关的，定义于 <code>mm/page_alloc.c</code>，这里不展开。</p><h2 id=setup_per_cpu_areas><code>setup_per_cpu_areas()</code></h2><p><code>setup_per_cpu_areas()</code> 函数位于 <code>arch/x86/kernel/setup_percpu.c</code>，用于初始化 <a href=/posts/kernel/memory/per-cpu>per-CPU 高速缓存</a>。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>setup_per_cpu_areas</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> cpu;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> delta;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> rc;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>pr_info</span>(<span style=color:#e6db74>&#34;NR_CPUS:%d nr_cpumask_bits:%d nr_cpu_ids:%d nr_node_ids:%d</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>        NR_CPUS, nr_cpumask_bits, nr_cpu_ids, nr_node_ids);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * Allocate percpu area.  Embedding allocator is our favorite;
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * however, on NUMA configurations, it can result in very
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * sparse unit mapping and vmalloc area isn&#39;t spacious enough
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * on 32bit.  Use page in that case.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_X86_32
+</span></span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (pcpu_chosen_fc <span style=color:#f92672>==</span> PCPU_FC_AUTO <span style=color:#f92672>&amp;&amp;</span> <span style=color:#a6e22e>pcpu_need_numa</span>())
+</span></span><span style=display:flex><span>        pcpu_chosen_fc <span style=color:#f92672>=</span> PCPU_FC_PAGE;
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>    rc <span style=color:#f92672>=</span> <span style=color:#f92672>-</span>EINVAL;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (pcpu_chosen_fc <span style=color:#f92672>!=</span> PCPU_FC_PAGE) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>size_t</span> atom_size <span style=color:#f92672>=</span> cpu_has_pse <span style=color:#f92672>?</span> PMD_SIZE : PAGE_SIZE;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>size_t</span> dyn_size <span style=color:#f92672>=</span> PERCPU_MODULE_RESERVE <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>            PERCPU_DYNAMIC_RESERVE <span style=color:#f92672>-</span> PERCPU_FIRST_CHUNK_RESERVE;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        rc <span style=color:#f92672>=</span> <span style=color:#a6e22e>pcpu_embed_first_chunk</span>(PERCPU_FIRST_CHUNK_RESERVE,
+</span></span><span style=display:flex><span>                        dyn_size, atom_size,
+</span></span><span style=display:flex><span>                        pcpu_cpu_distance,
+</span></span><span style=display:flex><span>                        pcpu_fc_alloc, pcpu_fc_free);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (rc <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>pr_warning</span>(<span style=color:#e6db74>&#34;%s allocator failed (%d), falling back to page size</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>                   pcpu_fc_names[pcpu_chosen_fc], rc);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (rc <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>        rc <span style=color:#f92672>=</span> <span style=color:#a6e22e>pcpu_page_first_chunk</span>(PERCPU_FIRST_CHUNK_RESERVE,
+</span></span><span style=display:flex><span>                       pcpu_fc_alloc, pcpu_fc_free,
+</span></span><span style=display:flex><span>                       pcpup_populate_pte);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (rc <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>panic</span>(<span style=color:#e6db74>&#34;cannot initialize percpu area (err=%d)&#34;</span>, rc);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* alrighty, percpu areas up and running */</span>
+</span></span><span style=display:flex><span>    delta <span style=color:#f92672>=</span> (<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)pcpu_base_addr <span style=color:#f92672>-</span> (<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)__per_cpu_start;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>for_each_possible_cpu</span>(cpu) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>per_cpu_offset</span>(cpu) <span style=color:#f92672>=</span> delta <span style=color:#f92672>+</span> pcpu_unit_offsets[cpu];
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>per_cpu</span>(this_cpu_off, cpu) <span style=color:#f92672>=</span> <span style=color:#a6e22e>per_cpu_offset</span>(cpu);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>per_cpu</span>(cpu_number, cpu) <span style=color:#f92672>=</span> cpu;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>setup_percpu_segment</span>(cpu);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>setup_stack_canary_segment</span>(cpu);
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * Copy data used in early init routines from the
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * initial arrays to the per cpu data areas.  These
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * arrays then become expendable and the *_early_ptr&#39;s
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * are zeroed indicating that the static arrays are
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * gone.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_X86_LOCAL_APIC
+</span></span></span><span style=display:flex><span>        <span style=color:#a6e22e>per_cpu</span>(x86_cpu_to_apicid, cpu) <span style=color:#f92672>=</span>
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>early_per_cpu_map</span>(x86_cpu_to_apicid, cpu);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>per_cpu</span>(x86_bios_cpu_apicid, cpu) <span style=color:#f92672>=</span>
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>early_per_cpu_map</span>(x86_bios_cpu_apicid, cpu);
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_X86_64
+</span></span></span><span style=display:flex><span>        <span style=color:#a6e22e>per_cpu</span>(irq_stack_ptr, cpu) <span style=color:#f92672>=</span>
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>per_cpu</span>(irq_stack_union.irq_stack, cpu) <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>            IRQ_STACK_SIZE <span style=color:#f92672>-</span> <span style=color:#ae81ff>64</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_NUMA
+</span></span></span><span style=display:flex><span>        <span style=color:#a6e22e>per_cpu</span>(x86_cpu_to_node_map, cpu) <span style=color:#f92672>=</span>
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>early_per_cpu_map</span>(x86_cpu_to_node_map, cpu);
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * Up to this point, the boot CPU has been using .data.init
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * area.  Reload any changed state for the boot CPU.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (cpu <span style=color:#f92672>==</span> boot_cpu_id)
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>switch_to_new_gdt</span>(cpu);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* indicate the early static arrays will soon be gone */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_X86_LOCAL_APIC
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>early_per_cpu_ptr</span>(x86_cpu_to_apicid) <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>early_per_cpu_ptr</span>(x86_bios_cpu_apicid) <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#if defined(CONFIG_X86_64) &amp;&amp; defined(CONFIG_NUMA)
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>early_per_cpu_ptr</span>(x86_cpu_to_node_map) <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#if defined(CONFIG_X86_64) &amp;&amp; defined(CONFIG_NUMA)
+</span></span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * make sure boot cpu node_number is right, when boot cpu is on the
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * node that doesn&#39;t have mem installed
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>per_cpu</span>(node_number, boot_cpu_id) <span style=color:#f92672>=</span> <span style=color:#a6e22e>cpu_to_node</span>(boot_cpu_id);
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Setup node to cpumask map */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>setup_node_to_cpumask_map</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Setup cpu initialized, callin, callout masks */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>setup_cpu_local_masks</span>();
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=build_all_zonelists><code>build_all_zonelists()</code></h3><p><code>build_all_zonelists()</code> 函数位于 <code>mm/page_alloc.c</code>，用于初始化结点和内存区域。</p><p>该函数和其调用的相关函数定义如下：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>build_zonelists</span>(<span style=color:#66d9ef>pg_data_t</span> <span style=color:#f92672>*</span>pgdat)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> j, node, load;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>enum</span> zone_type i;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>nodemask_t</span> used_mask;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> local_node, prev_node;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> zonelist <span style=color:#f92672>*</span>zonelist;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> order <span style=color:#f92672>=</span> current_zonelist_order;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* initialize zonelists */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> (i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; i <span style=color:#f92672>&lt;</span> MAX_ZONELISTS; i<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>        zonelist <span style=color:#f92672>=</span> pgdat<span style=color:#f92672>-&gt;</span>node_zonelists <span style=color:#f92672>+</span> i;
+</span></span><span style=display:flex><span>        zonelist<span style=color:#f92672>-&gt;</span>_zonerefs[<span style=color:#ae81ff>0</span>].zone <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>        zonelist<span style=color:#f92672>-&gt;</span>_zonerefs[<span style=color:#ae81ff>0</span>].zone_idx <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* NUMA-aware ordering of nodes */</span>
+</span></span><span style=display:flex><span>    local_node <span style=color:#f92672>=</span> pgdat<span style=color:#f92672>-&gt;</span>node_id;
+</span></span><span style=display:flex><span>    load <span style=color:#f92672>=</span> nr_online_nodes;
+</span></span><span style=display:flex><span>    prev_node <span style=color:#f92672>=</span> local_node;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>nodes_clear</span>(used_mask);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>memset</span>(node_order, <span style=color:#ae81ff>0</span>, <span style=color:#66d9ef>sizeof</span>(node_order));
+</span></span><span style=display:flex><span>    j <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> ((node <span style=color:#f92672>=</span> <span style=color:#a6e22e>find_next_best_node</span>(local_node, <span style=color:#f92672>&amp;</span>used_mask)) <span style=color:#f92672>&gt;=</span> <span style=color:#ae81ff>0</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> distance <span style=color:#f92672>=</span> <span style=color:#a6e22e>node_distance</span>(local_node, node);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * If another node is sufficiently far away then it is better
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * to reclaim pages in a zone before going off node.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (distance <span style=color:#f92672>&gt;</span> RECLAIM_DISTANCE)
+</span></span><span style=display:flex><span>            zone_reclaim_mode <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * We don&#39;t want to pressure a particular node.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * So adding penalty to the first node in same
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * distance group to make it round-robin.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (distance <span style=color:#f92672>!=</span> <span style=color:#a6e22e>node_distance</span>(local_node, prev_node))
+</span></span><span style=display:flex><span>            node_load[node] <span style=color:#f92672>=</span> load;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        prev_node <span style=color:#f92672>=</span> node;
+</span></span><span style=display:flex><span>        load<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (order <span style=color:#f92672>==</span> ZONELIST_ORDER_NODE)
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>build_zonelists_in_node_order</span>(pgdat, node);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>else</span>
+</span></span><span style=display:flex><span>            node_order[j<span style=color:#f92672>++</span>] <span style=color:#f92672>=</span> node;     <span style=color:#75715e>/* remember order */</span>
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (order <span style=color:#f92672>==</span> ZONELIST_ORDER_ZONE) {
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/* calculate node order -- i.e., DMA last! */</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>build_zonelists_in_zone_order</span>(pgdat, j);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>build_thisnode_zonelists</span>(pgdat);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/* return values int ....just for stop_machine() */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>__build_all_zonelists</span>(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>dummy)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> nid;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> cpu;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_NUMA
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>memset</span>(node_load, <span style=color:#ae81ff>0</span>, <span style=color:#66d9ef>sizeof</span>(node_load));
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>for_each_online_node</span>(nid) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>pg_data_t</span> <span style=color:#f92672>*</span>pgdat <span style=color:#f92672>=</span> <span style=color:#a6e22e>NODE_DATA</span>(nid);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>build_zonelists</span>(pgdat);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>build_zonelist_cache</span>(pgdat);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * Initialize the boot_pagesets that are going to be used
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * for bootstrapping processors. The real pagesets for
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * each zone will be allocated later when the per cpu
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * allocator is available.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     *
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * boot_pagesets are used also for bootstrapping offline
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * cpus if the system is already booted because the pagesets
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * are needed to initialize allocators on a specific cpu too.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * F.e. the percpu allocator needs the page allocator which
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * needs the percpu allocator in order to allocate its pagesets
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * (a chicken-egg dilemma).
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>for_each_possible_cpu</span>(cpu)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>setup_pageset</span>(<span style=color:#f92672>&amp;</span><span style=color:#a6e22e>per_cpu</span>(boot_pageset, cpu), <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>build_all_zonelists</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>set_zonelist_order</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (system_state <span style=color:#f92672>==</span> SYSTEM_BOOTING) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__build_all_zonelists</span>(NULL);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>mminit_verify_zonelist</span>();
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>cpuset_init_current_mems_allowed</span>();
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/* we have to stop all cpus to guarantee there is no user
+</span></span></span><span style=display:flex><span><span style=color:#75715e>           of zonelist */</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>stop_machine</span>(__build_all_zonelists, NULL, NULL);
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/* cpuset refresh routine should be here */</span>
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    vm_total_pages <span style=color:#f92672>=</span> <span style=color:#a6e22e>nr_free_pagecache_pages</span>();
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * Disable grouping by mobility if the number of pages in the
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * system is too low to allow the mechanism to work. It would be
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * more accurate, but expensive to check per-zone. This check is
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * made on memory-hotadd so a system can start with mobility
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * disabled and enable it later
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (vm_total_pages <span style=color:#f92672>&lt;</span> (pageblock_nr_pages <span style=color:#f92672>*</span> MIGRATE_TYPES))
+</span></span><span style=display:flex><span>        page_group_by_mobility_disabled <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>else</span>
+</span></span><span style=display:flex><span>        page_group_by_mobility_disabled <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(<span style=color:#e6db74>&#34;Built %i zonelists in %s order, mobility grouping %s.  &#34;</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;Total pages: %ld</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>,
+</span></span><span style=display:flex><span>            nr_online_nodes,
+</span></span><span style=display:flex><span>            zonelist_order_name[current_zonelist_order],
+</span></span><span style=display:flex><span>            page_group_by_mobility_disabled <span style=color:#f92672>?</span> <span style=color:#e6db74>&#34;off&#34;</span> <span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;on&#34;</span>,
+</span></span><span style=display:flex><span>            vm_total_pages);
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_NUMA
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>printk</span>(<span style=color:#e6db74>&#34;Policy zone: %s</span><span style=color:#ae81ff>\n</span><span style=color:#e6db74>&#34;</span>, zone_names[policy_zone]);
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=mm_init><code>mm_init()</code></h3><p><code>mm_init()</code> 函数位于 <code>init/main.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Set up kernel memory allocators
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>mm_init</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * page_cgroup requires countinous pages as memmap
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * and it&#39;s bigger than MAX_ORDER unless SPARSEMEM.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>page_cgroup_init_flatmem</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>mem_init</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kmem_cache_init</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>pgtable_cache_init</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>vmalloc_init</span>();
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><code>mem_init()</code> 函数用于停用 bootmem 分配器并迁移到实际的内存管理函数（见 <a href=/posts/kernel/memory/bootmem>bootmem 分配器</a>），<code>kmem_cache_init()</code> 函数用于初始化 slab/slob/slub 分配器。</p><h3 id=setup_per_cpu_pageset><code>setup_per_cpu_pageset()</code></h3><p><code>setup_per_cpu_pageset()</code> 函数位于 <code>mm/page_alloc.c</code>，用于分配并初始化 pageset：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Allocate per cpu pagesets and initialize them.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Before this call only boot pagesets were available.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Boot pagesets will no longer be used by this processorr
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * after setup_per_cpu_pageset().
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> __init <span style=color:#a6e22e>setup_per_cpu_pageset</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> zone <span style=color:#f92672>*</span>zone;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> cpu;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>for_each_populated_zone</span>(zone) {
+</span></span><span style=display:flex><span>        zone<span style=color:#f92672>-&gt;</span>pageset <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_percpu</span>(<span style=color:#66d9ef>struct</span> per_cpu_pageset);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>for_each_possible_cpu</span>(cpu) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>struct</span> per_cpu_pageset <span style=color:#f92672>*</span>pcp <span style=color:#f92672>=</span> <span style=color:#a6e22e>per_cpu_ptr</span>(zone<span style=color:#f92672>-&gt;</span>pageset, cpu);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>setup_pageset</span>(pcp, <span style=color:#a6e22e>zone_batchsize</span>(zone));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (percpu_pagelist_fraction)
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>setup_pagelist_highmark</span>(pcp,
+</span></span><span style=display:flex><span>                    (zone<span style=color:#f92672>-&gt;</span>present_pages <span style=color:#f92672>/</span>
+</span></span><span style=display:flex><span>                        percpu_pagelist_fraction));
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div></div><div class="row ps-3 pe-3"><div class="col-md-6 share-buttons"><strong>分享:</strong>
+<a class="btn icon-button bg-facebook" href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2finitialization%2f" target=_blank><i class="fab fa-facebook"></i>
+</a><a class="btn icon-button bg-twitter" href="https://twitter.com/share?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2finitialization%2f&text=%e5%86%85%e5%ad%98%e7%ae%a1%e7%90%86%e5%88%9d%e5%a7%8b%e5%8c%96&via=FreeFlyingSheep%20%e7%9a%84%e5%8d%9a%e5%ae%a2" target=_blank><i class="fab fa-twitter"></i>
+</a><a class="btn icon-button bg-reddit" href="https://reddit.com/submit?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2finitialization%2f&title=%e5%86%85%e5%ad%98%e7%ae%a1%e7%90%86%e5%88%9d%e5%a7%8b%e5%8c%96" target=_blank><i class="fab fa-reddit"></i>
+</a><a class="btn icon-button bg-linkedin" href="https://www.linkedin.com/shareArticle?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2finitialization%2f&title=%e5%86%85%e5%ad%98%e7%ae%a1%e7%90%86%e5%88%9d%e5%a7%8b%e5%8c%96" target=_blank><i class="fab fa-linkedin"></i>
+</a><a class="btn icon-button bg-whatsapp" href="https://api.whatsapp.com/send?text=%e5%86%85%e5%ad%98%e7%ae%a1%e7%90%86%e5%88%9d%e5%a7%8b%e5%8c%96 https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2finitialization%2f" target=_blank><i class="fab fa-whatsapp"></i>
+</a><a class="btn icon-button" href="mailto:?subject=%e5%86%85%e5%ad%98%e7%ae%a1%e7%90%86%e5%88%9d%e5%a7%8b%e5%8c%96&body=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2finitialization%2f" target=_blank><i class="fas fa-envelope-open-text"></i></a></div><div class="col-md-6 btn-improve-page"><a href=https://github.com/FreeFlyingSheep/FreeFlyingSheep.github.io/edit//content/posts/kernel/memory/initialization.md title target=_blank rel=noopener><i class="fas fa-code-branch"></i>
+改善此页面</a></div></div><hr><div class="row next-prev-navigator"><div class="col-md-6 previous-article"><a href=/posts/kernel/memory/model/ title=内存模型 class="btn filled-button"><div><i class="fas fa-chevron-circle-left"></i> 上一篇</div><div class=next-prev-text>内存模型</div></a></div><div class="col-md-6 next-article"><a href=/posts/kernel/memory/supplement/ title=内存管理补充 class="btn filled-button"><div>下一篇 <i class="fas fa-chevron-circle-right"></i></div><div class=next-prev-text>内存管理补充</div></a></div></div><hr><script src=https://giscus.app/client.js data-repo=FreeFlyingSheep/FreeFlyingSheep.github.io data-repo-id=R_kgDORf53Rg data-category=Comments data-category-id=DIC_kwDORf53Rs4C325X data-mapping=url data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang crossorigin=anonymous async></script></div></div></div><a id=scroll-to-top class=btn type=button data-bs-toggle=tooltip data-bs-placement=left title="Scroll to top"><i class="fas fa-chevron-circle-up"></i></a></section><section class=toc-section id=toc-section><div class=toc-holder><h5 class="text-center ps-3">目录</h5><hr><div class=toc><nav id=TableOfContents><ul><li><a href=#内存管理初始化简介>内存管理初始化简介</a></li><li><a href=#setup_arch><code>setup_arch()</code></a><ul><li><a href=#machine_specific_memory_setup><code>machine_specific_memory_setup()</code></a></li><li><a href=#parse_early_param><code>parse_early_param()</code></a></li><li><a href=#setup_memory><code>setup_memory()</code></a></li><li><a href=#paging_init><code>paging_init()</code></a></li><li><a href=#zone_sizes_init><code>zone_sizes_init()</code></a></li></ul></li><li><a href=#setup_per_cpu_areas><code>setup_per_cpu_areas()</code></a><ul><li><a href=#build_all_zonelists><code>build_all_zonelists()</code></a></li><li><a href=#mm_init><code>mm_init()</code></a></li><li><a href=#setup_per_cpu_pageset><code>setup_per_cpu_pageset()</code></a></li></ul></li></ul></nav></div></div></section></div><footer id=footer class="container-fluid text-center align-content-center footer pb-2"><div class="container pt-5"><div class="row text-start"><div class="col-md-4 col-sm-12"><h5>导航</h5><ul><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#about>关于</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#skills>技能</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#experiences>工作经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#education>教育经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#projects>参与项目</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#recent-posts>最近博文</a></li><li class=nav-item><a class=smooth-scroll href=/tags/>标签</a></li><li class=nav-item><a class=smooth-scroll href=/categories/>类别</a></li></ul></div><div class="col-md-4 col-sm-12"><h5>联系方式:</h5><ul><li><a href=mailto:chris.chenfeiyang@gmail.com target=_blank rel=noopener><span><i class="fas fa-envelope"></i></span> <span>chris.chenfeiyang@gmail.com</span></a></li><li><a href=https://github.com/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-github"></i></span> <span>FreeFlyingSheep</span></a></li><li><a href=https://www.linkedin.com/in/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-linkedin"></i></span> <span>FreeFlyingSheep</span></a></li></ul></div></div></div><hr><div class=container><p id=disclaimer><strong>免责声明:</strong> 本主题使用 MIT 许可证。本博客使用署名—非商业性使用 4.0 协议国际版（CC BY-NC 4.0）许可证。</p></div><hr><div class=container><div class="row text-start"><div class=col-md-4><a id=theme href=https://github.com/hugo-toha/toha target=_blank rel=noopener><img src=/images/theme-logo_hu_be7279b2506ad3f1.png alt="Toha Theme Logo">
+Toha</a></div><div class="col-md-4 text-center">© 2023 版权所有。</div><div class="col-md-4 text-end"><a id=hugo href=https://gohugo.io/ target=_blank rel=noopener>Powered by
+<img src=/images/hugo-logo.svg alt="Hugo Logo" height=18></a></div></div></div></footer><script src=/application.526b71351c36e243e2d7f272cedce3393c291461a3b0a49f877f3a3b4995291d.js integrity="sha256-UmtxNRw24kPi1/JyztzjOTwpFGGjsKSfh386O0mVKR0=" defer></script></body></html>

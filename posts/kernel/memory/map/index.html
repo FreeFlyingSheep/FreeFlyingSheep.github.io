@@ -1,0 +1,329 @@
+<!doctype html><html lang=zh-cn><head><title>内存映射</title><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=X-UA-Compatible content="ie=edge"><link rel=canonical href=https://FreeFlyingSheep.github.io/posts/kernel/memory/map/><link rel=stylesheet href=/application.12d69a55a3afe94646716f1bcc2804b35a0b575ba94febbb0ec6e47bd0bef25f.css integrity="sha256-EtaaVaOv6UZGcW8bzCgEs1oLV1upT+u7Dsbke9C+8l8="><link rel=icon type=image/png href=/images/site/favicon_hu_bf1264eea1001669.png><meta property="og:title" content="内存映射"><meta property="og:type" content="website"><meta property="og:description" content="FreeFlyingSheep 的个人博客。"><meta property="og:image" content="https://FreeFlyingSheep.github.io/images/author/octocat.png"><meta property="og:url" content="https://FreeFlyingSheep.github.io/posts/kernel/memory/map/"><meta name=twitter:card content="summary"><meta name=twitter:title content="内存映射"><meta name=twitter:description content="Linux 内核学习笔记系列，内存管理部分，简单介绍内存映射。"><meta name=description content="内存映射"><script async src="https://www.googletagmanager.com/gtag/js?id=G-FF4B2FQP4C"></script><script>var doNotTrack=!1;if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FF4B2FQP4C")}</script><script integrity="sha256-DO4ugzEwhTW1Id1UIWn0gUJWaebCYOypeTit6LW4QB4=">let theme=localStorage.getItem("theme-scheme")||localStorage.getItem("darkmode:color-scheme")||"light";theme==="system"&&(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?theme="dark":theme="light"),document.documentElement.setAttribute("data-theme",theme)</script></head><body class="type-posts kind-page" data-bs-spy=scroll data-bs-target=#TableOfContents data-bs-offset=80><div class="container-fluid bg-secondary wrapper"><nav class="navbar navbar-expand-xl top-navbar shadow" id=top-navbar><div class=container><button class="navbar-toggler navbar-light" id=sidebar-toggler type=button>
+<i data-feather=sidebar></i>
+</button>
+<a class=navbar-brand href=/><img src=/images/site/logo_hu_bf1264eea1001669.png id=logo alt=Logo>
+FreeFlyingSheep 的博客</a>
+<button class="navbar-toggler navbar-light" id=navbar-toggler type=button data-bs-toggle=collapse data-bs-target=#top-nav-items aria-label=menu>
+<i data-feather=menu></i></button><div class="collapse navbar-collapse dynamic-navbar" id=top-nav-items><ul class="nav navbar-nav ms-auto"><li class=nav-item><a class=nav-link href=/#home>主页</a></li><li class=nav-item><a class=nav-link href=/#about>关于</a></li><li class=nav-item><a class=nav-link href=/#skills>技能</a></li><li class=nav-item><a class=nav-link href=/#experiences>工作经历</a></li><li class=nav-item><a class=nav-link href=/#education>教育经历</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=navbarDropdown role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false>更多的</a><div class=dropdown-menu aria-labelledby=navbarDropdown><a class=dropdown-item href=/#projects>参与项目</a>
+<a class=dropdown-item href=/#recent-posts>最近博文</a></div></li><div id=top-navbar-divider></div><li class=nav-item><a class=nav-link id=blog-link href=/posts>博文</a></li><li class=nav-item><a class=nav-link id=note-link href=/notes>笔记</a></li><li class=nav-item><a class=nav-link href=/tags/>标签</a></li><li class=nav-item><a class=nav-link href=/categories/>类别</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=themeSelector role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false><img id=navbar-theme-icon-svg class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme"></a><div id=themeMenu class="dropdown-menu dropdown-menu-icons-only" aria-labelledby=themeSelector><a class="dropdown-item nav-link" href=# data-scheme=light><img class=theme-icon src=/icons/sun-svgrepo-com.svg width=20 alt="Light Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=dark><img class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=system><img class=theme-icon src=/icons/computer-svgrepo-com.svg width=20 alt="System Theme"></a></div></li></ul></div></div><img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=main-logo alt=Logo>
+<img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=inverted-logo alt="Inverted Logo"></nav><section class=sidebar-section id=sidebar-section><div class=sidebar-holder><div class=sidebar id=sidebar><form class=mx-auto method=get action=/%20search><input type=text name=keyword placeholder data-search id=search-box></form><div class=sidebar-tree><ul class=tree id=tree><li id=list-heading><a href=/%20/posts/ data-filter=all>博文</a></li><div class=subtree><li><a class=list-link href=/posts/introduction/ title=引言>引言</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/> AI</a><ul><li><a class=list-link href=/posts/ai/ai/ title="AI 学习笔记">AI 学习笔记</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/nlp/> NLP</a><ul><li><a class=list-link href=/posts/ai/nlp/basic/ title="NLP 基础概念">NLP 基础概念</a></li><li><a class=list-link href=/posts/ai/nlp/core/ title="NLP 系统">NLP 系统</a></li><li><a class=list-link href=/posts/ai/nlp/supplement/ title="NLP 补充内容">NLP 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/llm/> LLM</a><ul><li><a class=list-link href=/posts/ai/llm/basic/ title="LLM 基本概念">LLM 基本概念</a></li><li><a class=list-link href=/posts/ai/llm/usage/ title="LLM 的使用">LLM 的使用</a></li><li><a class=list-link href=/posts/ai/llm/supplement/ title="LLM 补充内容">LLM 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/agent/> Agent</a><ul><li><a class=list-link href=/posts/ai/agent/basic/ title="Agent 基本概念">Agent 基本概念</a></li><li><a class=list-link href=/posts/ai/agent/mcp/ title="MCP 相关概念">MCP 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/rag/ title="RAG 相关概念">RAG 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/demo/ title="股票分析 Demo">股票分析 Demo</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/git/> Git</a><ul><li><a class=list-link href=/posts/git/command/ title="Git 常用命令">Git 常用命令</a></li><li><a class=list-link href=/posts/git/patch/ title="Git 打补丁">Git 打补丁</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/linux/> Linux</a><ul><li><a class=list-link href=/posts/linux/arch/ title="安装 Arch Linux">安装 Arch Linux</a></li><li><a class=list-link href=/posts/linux/wsl/ title="安装 WSL">安装 WSL</a></li><li><a class=list-link href=/posts/linux/lfs/ title="构建 LFS 系统">构建 LFS 系统</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/loongarch/> LoongArch</a><ul><li><a class=list-link href=/posts/loongarch/assembly/ title="LoongArch 汇编">LoongArch 汇编</a></li><li><a class=list-link href=/posts/loongarch/develop/ title="在 LoongArch 上开发">在 LoongArch 上开发</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/mips/> MIPS</a><ul><li><a class=list-link href=/posts/mips/see-mips-run/ title="MIPS 体系结构">MIPS 体系结构</a></li><li><a class=list-link href=/posts/mips/assembly/ title="MIPS 汇编">MIPS 汇编</a></li><li><a class=list-link href=/posts/mips/supplement/ title=MIPS（补充内容）>MIPS（补充内容）</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/openstack/> OpenStack</a><ul><li><a class=list-link href=/posts/openstack/introduction/ title="OpenStack 简介">OpenStack 简介</a></li><li><a class=list-link href=/posts/openstack/lemote/ title="在龙芯上移植 OpenStack">在龙芯上移植 OpenStack</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/rt-thread/> RT-Thread</a><ul><li><a class=list-link href=/posts/rt-thread/loongarch32/ title="移植 RT-Thread 到 LoongArch32">移植 RT-Thread 到 LoongArch32</a></li><li><a class=list-link href=/posts/rt-thread/loongarch64/ title="移植 RT-Thread 到 LoongArch64">移植 RT-Thread 到 LoongArch64</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/valgrind/> Valgrind</a><ul><li><a class=list-link href=/posts/valgrind/libvex/ title="libVEX 简介">libVEX 简介</a></li><li><a class=list-link href=/posts/valgrind/loongarch/ title="Valgrind for LoongArch">Valgrind for LoongArch</a></li><li><a class=list-link href=/posts/valgrind/valgrind/ title="Valgrind 简介">Valgrind 简介</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/> 内核</a><ul class=active><li><a class=list-link href=/posts/kernel/kernel/ title="Linux 内核学习笔记">Linux 内核学习笔记</a></li><li><a class=list-link href=/posts/kernel/todo/ title="TODO 列表">TODO 列表</a></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/memory/> 内存管理</a><ul class=active><li><a class=list-link href=/posts/kernel/memory/bootmem/ title="bootmem 分配器">bootmem 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/per-cpu/ title="per-CPU 高速缓存">per-CPU 高速缓存</a></li><li><a class=list-link href=/posts/kernel/memory/slab/ title="slab 分配器">slab 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/buddy-system/ title=伙伴系统>伙伴系统</a></li><li><a class=list-link href=/posts/kernel/memory/address/ title=内存寻址>内存寻址</a></li><li><a class="active list-link" href=/posts/kernel/memory/map/ title=内存映射>内存映射</a></li><li><a class=list-link href=/posts/kernel/memory/model/ title=内存模型>内存模型</a></li><li><a class=list-link href=/posts/kernel/memory/initialization/ title=内存管理初始化>内存管理初始化</a></li><li><a class=list-link href=/posts/kernel/memory/supplement/ title=内存管理补充>内存管理补充</a></li><li><a class=list-link href=/posts/kernel/memory/continuous/ title=连续页框的管理>连续页框的管理</a></li><li><a class=list-link href=/posts/kernel/memory/uncontinuous/ title=非连续页框的管理>非连续页框的管理</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/develop/> 开发</a><ul><li><a class=list-link href=/posts/kernel/develop/arch/ title=体系结构相关知识>体系结构相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/develop/ title=内核开发相关知识>内核开发相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/build/ title=内核编译和调试>内核编译和调试</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/data-structure/> 数据结构</a><ul><li><a class=list-link href=/posts/kernel/data-structure/expansion/ title="GCC 扩展语法">GCC 扩展语法</a></li><li><a class=list-link href=/posts/kernel/data-structure/bitmap/ title=内核位图>内核位图</a></li><li><a class=list-link href=/posts/kernel/data-structure/radix-tree/ title=内核基数树>内核基数树</a></li><li><a class=list-link href=/posts/kernel/data-structure/hlist/ title=内核散列表>内核散列表</a></li><li><a class=list-link href=/posts/kernel/data-structure/rbtree/ title=内核红黑树>内核红黑树</a></li><li><a class=list-link href=/posts/kernel/data-structure/list/ title=内核链表>内核链表</a></li><li><a class=list-link href=/posts/kernel/data-structure/kfifo/ title=内核队列>内核队列</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/miscellaneous/> 杂项</a><ul><li><a class=list-link href=/posts/kernel/miscellaneous/dynamic-debug/ title=动态调试>动态调试</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/macros-pitfalls/ title=宏的陷阱和使用技巧>宏的陷阱和使用技巧</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/predefined-macros/ title=预定义宏>预定义宏</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/introduction/> 简介</a><ul><li><a class=list-link href=/posts/kernel/introduction/basis/ title="Linux 内核基础">Linux 内核基础</a></li><li><a class=list-link href=/posts/kernel/introduction/common/ title="Linux 内核常见函数/宏">Linux 内核常见函数/宏</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/tips/> 技巧</a><ul><li><a class=list-link href=/posts/tips/github/ title="Github 模板">Github 模板</a></li><li><a class=list-link href=/posts/tips/generic-entry/ title="Linux 中断和系统调用通用框架">Linux 中断和系统调用通用框架</a></li><li><a class=list-link href=/posts/tips/mips-boot/ title="Linux/MIPS 启动">Linux/MIPS 启动</a></li><li><a class=list-link href=/posts/tips/shell-redirect/ title="shell 重定向小技巧">shell 重定向小技巧</a></li><li><a class=list-link href=/posts/tips/hugo/ title="使用 Hugo 搭建个人博客">使用 Hugo 搭建个人博客</a></li><li><a class=list-link href=/posts/tips/zsh/ title="使用 Zsh">使用 Zsh</a></li><li><a class=list-link href=/posts/tips/linux-version/ title="查看 Linux 版本">查看 Linux 版本</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/virtualization/> 虚拟化</a><ul><li><a class=list-link href=/posts/virtualization/kvm/ title="KVM 简介">KVM 简介</a></li><li><a class=list-link href=/posts/virtualization/qemu/ title="QEMU 简介">QEMU 简介</a></li></ul></li></div></ul></div></div></div></section><section class=content-section id=content-section><div class=content><div class="container p-0 read-area"><div class="hero-area col-sm-12" id=hero-area style=background-image:url(/images/default-hero_hu_1e630a6e35d8e16.jpg)></div><div class=page-content><div class="author-profile ms-auto align-self-lg-center"><img class=rounded-circle src=/images/author/octocat_hu_88b3a7924ca87a69.png alt="Author Image"><h5 class=author-name>FreeFlyingSheep</h5><p class=text-muted>Monday, April 26, 2021 |
+5 分钟</p></div><div class=title><h1>内存映射</h1></div><div class=tags><ul style=padding-left:0><li><a href=/tags/linux-%E5%86%85%E6%A0%B8/ class="btn btn-sm btn-outline-info rounded">Linux 内核</a></li><li><a href=/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/ class="btn btn-sm btn-outline-info rounded">内存管理</a></li><li><a href=/tags/%E5%86%85%E5%AD%98%E6%98%A0%E5%B0%84/ class="btn btn-sm btn-outline-info rounded">内存映射</a></li></ul></div><div class=post-content id=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，内存管理部分，简单介绍内存映射。</p><h2 id=高端内存页框的内存映射简介>高端内存页框的内存映射简介</h2><p>内核可以采用三种不同的机制讲页框映射到高端内存：永久内核映射、临时内核映射和非连续内存分配。其中，非连续内存分配的部分见<a href=/posts/kernel/memory/uncontinuous>非连续内存分配</a>。</p><h2 id=永久内核映射>永久内核映射</h2><p>永久内核映射允许内核建立高端页框到内核地址空间的长期映射。当空闲页表项不存在（高端内存上没有页表项可以用作页框的窗口）时，可能会阻塞当前进程。因此，它不能用于中断处理程序和可延迟函数。</p><h3 id=页表>页表</h3><p>永久映射使用主内核页表中的一个专门页表。</p><p><code>mm/highmem.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>pte_t</span> <span style=color:#f92672>*</span> pkmap_page_table;
+</span></span></code></pre></div><p>页表的表项数由 <code>LAST_PKMAP</code> 宏决定，该宏是体系结构相关的。</p><p><code>arch/x86/include/asm/pgtable_32_types.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_X86_PAE
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define LAST_PKMAP 512
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define LAST_PKMAP 1024
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span></code></pre></div><p>页表映射的线性地址从 <code>PKMAP_BASE</code>（该宏的实现与 vsyscall 有关，不属于本系列学习笔记的范畴）开始，每个表项都有一个计数器，存放于数组 <code>pkmap_count</code> 中。</p><p><code>mm/highmem.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> pkmap_count[LAST_PKMAP];
+</span></span></code></pre></div><p>为了页框与映射的线性地址之间的联系，内核使用了 <code>page_address_htable</code> 散列表。</p><p><code>mm/highmem.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>struct</span> page_address_slot {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head lh;    <span style=color:#75715e>/* List of page_address_maps */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>spinlock_t</span> lock;        <span style=color:#75715e>/* Protect this bucket&#39;s list */</span>
+</span></span><span style=display:flex><span>} ____cacheline_aligned_in_smp page_address_htable[<span style=color:#ae81ff>1</span><span style=color:#f92672>&lt;&lt;</span>PA_HASH_ORDER];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>struct</span> page_address_slot <span style=color:#f92672>*</span><span style=color:#a6e22e>page_slot</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#f92672>&amp;</span>page_address_htable[<span style=color:#a6e22e>hash_ptr</span>(page, PA_HASH_ORDER)];
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=kmap-函数><code>kmap()</code> 函数</h3><p><code>kmap()</code> 函数用于建立永久内核映射，该函数是体系结构相关的。</p><p><code>arch/x86/mm/highmem_32.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>kmap</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>might_sleep</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>PageHighMem</span>(page))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>page_address</span>(page);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>kmap_high</span>(page);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><code>PageHighMem()</code> 宏定义于 <code>include/linux/page-flags.h</code>，该宏会根据内存管理区（Zone）来判断页框是否在高端内存。</p><p>如果不在高端内存，则线性地址一定存在，调用 <code>page_address()</code> 函数根据物理地址计算出对应的线性地址。</p><p><code>include/linux/mm.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> __always_inline <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>lowmem_page_address</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>__va</span>(<span style=color:#a6e22e>page_to_pfn</span>(page) <span style=color:#f92672>&lt;&lt;</span> PAGE_SHIFT);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><code>mm/highmem.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * page_address - get the mapped virtual address of a page
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @page: &amp;struct page to get the virtual address of
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Returns the page&#39;s virtual address.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>page_address</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>ret;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page_address_slot <span style=color:#f92672>*</span>pas;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>PageHighMem</span>(page))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>lowmem_page_address</span>(page);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    pas <span style=color:#f92672>=</span> <span style=color:#a6e22e>page_slot</span>(page);
+</span></span><span style=display:flex><span>    ret <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_lock_irqsave</span>(<span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(<span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lh)) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>struct</span> page_address_map <span style=color:#f92672>*</span>pam;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>list_for_each_entry</span>(pam, <span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lh, list) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (pam<span style=color:#f92672>-&gt;</span>page <span style=color:#f92672>==</span> page) {
+</span></span><span style=display:flex><span>                ret <span style=color:#f92672>=</span> pam<span style=color:#f92672>-&gt;</span>virtual;
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>goto</span> done;
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>done:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_unlock_irqrestore</span>(<span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> ret;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(page_address);
+</span></span></code></pre></div><p>如果页框在高端内存，则调用 <code>kmap_high()</code> 函数。</p><p><code>mm/highmem.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmap_high - map a highmem page into memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @page: &amp;struct page to map
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Returns the page&#39;s virtual memory address.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * We cannot call this from interrupts, as it may block.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>kmap_high</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> vaddr;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * For highmem pages, we can&#39;t trust &#34;virtual&#34; until
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * after we have the lock.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>lock_kmap</span>();
+</span></span><span style=display:flex><span>    vaddr <span style=color:#f92672>=</span> (<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)<span style=color:#a6e22e>page_address</span>(page);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>vaddr)
+</span></span><span style=display:flex><span>        vaddr <span style=color:#f92672>=</span> <span style=color:#a6e22e>map_new_virtual</span>(page);
+</span></span><span style=display:flex><span>    pkmap_count[<span style=color:#a6e22e>PKMAP_NR</span>(vaddr)]<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>BUG_ON</span>(pkmap_count[<span style=color:#a6e22e>PKMAP_NR</span>(vaddr)] <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>2</span>);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>unlock_kmap</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> (<span style=color:#66d9ef>void</span><span style=color:#f92672>*</span>) vaddr;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(kmap_high);
+</span></span></code></pre></div><p><code>kmap_high()</code> 函数首先获取 <code>lock_kmap</code> 自旋锁（因为中断处理程序和可延迟函数不能调用 <code>kmap()</code>，所以不需要关中断）。</p><p>然后通过 <code>page_address()</code> 函数来获取页框的线性地址。如果地址不存在，说明未被映射，此时通过 <code>map_new_virtual()</code> 函数把页框的物理地址插入到页表项，并在散列表中增加相应的元素。</p><p>其次，使页框对应的计数器加一。</p><p>最后，释放自旋锁并返回页框映射的线性地址。</p><p><code>map_new_virtual()</code> 的实现比较复杂。</p><p><code>mm/highmem.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> <span style=color:#a6e22e>map_new_virtual</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> vaddr;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> count;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>start:
+</span></span><span style=display:flex><span>    count <span style=color:#f92672>=</span> LAST_PKMAP;
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Find an empty entry */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> (;;) {
+</span></span><span style=display:flex><span>        last_pkmap_nr <span style=color:#f92672>=</span> (last_pkmap_nr <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span>) <span style=color:#f92672>&amp;</span> LAST_PKMAP_MASK;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>last_pkmap_nr) {
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>flush_all_zero_pkmaps</span>();
+</span></span><span style=display:flex><span>            count <span style=color:#f92672>=</span> LAST_PKMAP;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>pkmap_count[last_pkmap_nr])
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>break</span>;  <span style=color:#75715e>/* Found a usable entry */</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#f92672>--</span>count)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>continue</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * Sleep for somebody else to unmap their entries
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>DECLARE_WAITQUEUE</span>(wait, current);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>__set_current_state</span>(TASK_UNINTERRUPTIBLE);
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>add_wait_queue</span>(<span style=color:#f92672>&amp;</span>pkmap_map_wait, <span style=color:#f92672>&amp;</span>wait);
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>unlock_kmap</span>();
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>schedule</span>();
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>remove_wait_queue</span>(<span style=color:#f92672>&amp;</span>pkmap_map_wait, <span style=color:#f92672>&amp;</span>wait);
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>lock_kmap</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>/* Somebody else might have mapped it while we slept */</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>page_address</span>(page))
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>return</span> (<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)<span style=color:#a6e22e>page_address</span>(page);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>/* Re-start */</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>goto</span> start;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    vaddr <span style=color:#f92672>=</span> <span style=color:#a6e22e>PKMAP_ADDR</span>(last_pkmap_nr);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>set_pte_at</span>(<span style=color:#f92672>&amp;</span>init_mm, vaddr,
+</span></span><span style=display:flex><span>           <span style=color:#f92672>&amp;</span>(pkmap_page_table[last_pkmap_nr]), <span style=color:#a6e22e>mk_pte</span>(page, kmap_prot));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    pkmap_count[last_pkmap_nr] <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>set_page_address</span>(page, (<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>)vaddr);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> vaddr;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>不得不说这个循环的写法有些独特，但大体意思就是遍历 <code>LAST_PKMAP</code> 个表项，如果没有找到能用的，阻塞当前进程，等待其他进程释放了一个表项（见<a href=#kunmap-%e5%87%bd%e6%95%b0><code>kunmap()</code> 函数</a>）。当前进错被唤醒后，先检查其他进程是否已经映射了该页，是的话直接返回，反之重新开始循环。</p><p>下面来看一下具体的遍历过程，通过用 <code>last_pkmap_nr</code> 记录上次停止的位置，函数总是从上次停止的地方继续遍历。</p><p>找到能用的表项时，跳出循环，将其计数器置 <code>1</code>，并把该项插入散列表。</p><p><code>mm/highmem.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * set_page_address - set a page&#39;s virtual address
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @page: &amp;struct page to set
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @virtual: virtual address to use
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>set_page_address</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>virtual)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page_address_slot <span style=color:#f92672>*</span>pas;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page_address_map <span style=color:#f92672>*</span>pam;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#f92672>!</span><span style=color:#a6e22e>PageHighMem</span>(page));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    pas <span style=color:#f92672>=</span> <span style=color:#a6e22e>page_slot</span>(page);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (virtual) {  <span style=color:#75715e>/* Add */</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>list_empty</span>(<span style=color:#f92672>&amp;</span>page_address_pool));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>spin_lock_irqsave</span>(<span style=color:#f92672>&amp;</span>pool_lock, flags);
+</span></span><span style=display:flex><span>        pam <span style=color:#f92672>=</span> <span style=color:#a6e22e>list_entry</span>(page_address_pool.next,
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>struct</span> page_address_map, list);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>list_del</span>(<span style=color:#f92672>&amp;</span>pam<span style=color:#f92672>-&gt;</span>list);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>spin_unlock_irqrestore</span>(<span style=color:#f92672>&amp;</span>pool_lock, flags);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        pam<span style=color:#f92672>-&gt;</span>page <span style=color:#f92672>=</span> page;
+</span></span><span style=display:flex><span>        pam<span style=color:#f92672>-&gt;</span>virtual <span style=color:#f92672>=</span> virtual;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>spin_lock_irqsave</span>(<span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>list_add_tail</span>(<span style=color:#f92672>&amp;</span>pam<span style=color:#f92672>-&gt;</span>list, <span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lh);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>spin_unlock_irqrestore</span>(<span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {        <span style=color:#75715e>/* Remove */</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>spin_lock_irqsave</span>(<span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>list_for_each_entry</span>(pam, <span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lh, list) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (pam<span style=color:#f92672>-&gt;</span>page <span style=color:#f92672>==</span> page) {
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>list_del</span>(<span style=color:#f92672>&amp;</span>pam<span style=color:#f92672>-&gt;</span>list);
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>spin_unlock_irqrestore</span>(<span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>spin_lock_irqsave</span>(<span style=color:#f92672>&amp;</span>pool_lock, flags);
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>list_add_tail</span>(<span style=color:#f92672>&amp;</span>pam<span style=color:#f92672>-&gt;</span>list, <span style=color:#f92672>&amp;</span>page_address_pool);
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>spin_unlock_irqrestore</span>(<span style=color:#f92672>&amp;</span>pool_lock, flags);
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>goto</span> done;
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>spin_unlock_irqrestore</span>(<span style=color:#f92672>&amp;</span>pas<span style=color:#f92672>-&gt;</span>lock, flags);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>done:
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>当 <code>last_pkmap_nr</code> 回到最开始的 <code>0</code> 时，调用 <code>flush_all_zero_pkmaps()</code> 函数来重置计数器，删除散列表中对应的元素，并且刷新 TLB。</p><p><code>mm/highmem.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>flush_all_zero_pkmaps</span>(<span style=color:#66d9ef>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> i;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> need_flush <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>flush_cache_kmaps</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> (i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; i <span style=color:#f92672>&lt;</span> LAST_PKMAP; i<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * zero means we don&#39;t have anything to do,
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * &gt;1 means that it is still in use. Only
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * a count of 1 means that it is free but
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * needs to be unmapped
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (pkmap_count[i] <span style=color:#f92672>!=</span> <span style=color:#ae81ff>1</span>)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>continue</span>;
+</span></span><span style=display:flex><span>        pkmap_count[i] <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/* sanity check */</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>pte_none</span>(pkmap_page_table[i]));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * Don&#39;t need an atomic fetch-and-clear op here;
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * no-one has the page mapped, and cannot get at
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * its virtual address (and hence PTE) without first
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * getting the kmap_lock (which is held here).
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * So no dangers, even with speculative execution.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        page <span style=color:#f92672>=</span> <span style=color:#a6e22e>pte_page</span>(pkmap_page_table[i]);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>pte_clear</span>(<span style=color:#f92672>&amp;</span>init_mm, (<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)<span style=color:#a6e22e>page_address</span>(page),
+</span></span><span style=display:flex><span>              <span style=color:#f92672>&amp;</span>pkmap_page_table[i]);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>set_page_address</span>(page, NULL);
+</span></span><span style=display:flex><span>        need_flush <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (need_flush)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>flush_tlb_kernel_range</span>(<span style=color:#a6e22e>PKMAP_ADDR</span>(<span style=color:#ae81ff>0</span>), <span style=color:#a6e22e>PKMAP_ADDR</span>(LAST_PKMAP));
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>对于计数器，值为 <code>1</code> 代表表项空闲，但相应的 TLB 表项还未刷新，因此不能使用；大于 <code>1</code> 才表示在被使用。</p><p>个人理解这么做的好处是，刷新 TLB 的操作被延迟到没有直接能使用的表项时才进行，而不是每次有不使用的表项就刷新，后者效率太低了。</p><h3 id=kunmap-函数><code>kunmap()</code> 函数</h3><p><code>kmap()</code> 函数用于撤销 <code>kmap()</code> 建立的永久内核映射，该函数是体系结构相关的。</p><p><code>arch/x86/mm/highmem_32.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kunmap</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>in_interrupt</span>())
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>PageHighMem</span>(page))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kunmap_high</span>(page);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>如果该页框不在高端内存中，直接返回；反之调用 <code>kunmap_high()</code> 函数。</p><p><code>mm/highmem.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kunmap_high - map a highmem page into memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @page: &amp;struct page to unmap
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * If ARCH_NEEDS_KMAP_HIGH_GET is not defined then this may be called
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * only from user context.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kunmap_high</span>(<span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> vaddr;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> nr;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> need_wakeup;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>lock_kmap_any</span>(flags);
+</span></span><span style=display:flex><span>    vaddr <span style=color:#f92672>=</span> (<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)<span style=color:#a6e22e>page_address</span>(page);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#f92672>!</span>vaddr);
+</span></span><span style=display:flex><span>    nr <span style=color:#f92672>=</span> <span style=color:#a6e22e>PKMAP_NR</span>(vaddr);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * A count must never go down to zero
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * without a TLB flush!
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    need_wakeup <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>switch</span> (<span style=color:#f92672>--</span>pkmap_count[nr]) {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>case</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>:</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>case</span> <span style=color:#ae81ff>1</span><span style=color:#f92672>:</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * Avoid an unnecessary wake_up() function call.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * The common case is pkmap_count[] == 1, but
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * no waiters.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * The tasks queued in the wait-queue are guarded
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * by both the lock in the wait-queue-head and by
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * the kmap_lock.  As the kmap_lock is held here,
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * no need for the wait-queue-head&#39;s lock.  Simply
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * test if the queue is empty.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        need_wakeup <span style=color:#f92672>=</span> <span style=color:#a6e22e>waitqueue_active</span>(<span style=color:#f92672>&amp;</span>pkmap_map_wait);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>unlock_kmap_any</span>(flags);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* do wake-up, if needed, race-free outside of the spin lock */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (need_wakeup)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>wake_up</span>(<span style=color:#f92672>&amp;</span>pkmap_map_wait);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(kunmap_high);
+</span></span></code></pre></div><p><code>kunmap_high()</code> 函数把页框相应的计数器减一。如果该计数器的值为 <code>1</code>，那么说明没有进程在使用该页了，此时可以唤醒由 <code>map_new_virtual()</code> 阻塞的进程。当然，如果队列为空，这一步唤醒就不需要了（<code>need_wakeup = waitqueue_active(&amp;pkmap_map_wait)</code>）。</p><h2 id=临时内核映射>临时内核映射</h2><p>临时内核映射比永久内核映射的实现要简单。它不会阻塞当前进程，可以用于中断处理程序和可延迟函数。但它必须保证当前没有其他的内核控制路径在使用相同的映射，为了确保同一窗口不会被两个不同的路径同时使用，每个内核成分只能使用专门提供给它的窗口。留给临时映射的窗口很少，因此只能同时建立很少的临时内核映射。</p><h3 id=窗口>窗口</h3><p>这部分内容是体系结构相关的，每个 CPU 都包含多个窗口的集合。</p><p><code>include/asm-generic/kmap_types.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#ifdef __WITH_KM_FENCE
+</span></span></span><span style=display:flex><span><span style=color:#75715e># define KMAP_D(n) __KM_FENCE_##n ,
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span><span style=color:#75715e># define KMAP_D(n)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>enum</span> km_type {
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>0</span>)   KM_BOUNCE_READ,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>1</span>)   KM_SKB_SUNRPC_DATA,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>2</span>)   KM_SKB_DATA_SOFTIRQ,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>3</span>)   KM_USER0,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>4</span>)   KM_USER1,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>5</span>)   KM_BIO_SRC_IRQ,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>6</span>)   KM_BIO_DST_IRQ,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>7</span>)   KM_PTE0,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>8</span>)   KM_PTE1,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>9</span>)   KM_IRQ0,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>10</span>)  KM_IRQ1,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>11</span>)  KM_SOFTIRQ0,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>12</span>)  KM_SOFTIRQ1,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>13</span>)  KM_SYNC_ICACHE,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>14</span>)  KM_SYNC_DCACHE,
+</span></span><span style=display:flex><span><span style=color:#75715e>/* UML specific, for copy_*_user - used in do_op_one_page */</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>15</span>)  KM_UML_USERCOPY,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>16</span>)  KM_IRQ_PTE,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>17</span>)  KM_NMI,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>18</span>)  KM_NMI_PTE,
+</span></span><span style=display:flex><span><span style=color:#a6e22e>KMAP_D</span>(<span style=color:#ae81ff>19</span>)  KM_TYPE_NR
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>因为同一窗口不能被两个不同的控制路径同时使用，所以这里的每个符号都以允许使用它的内核成分来命名。<code>KM_TYPE_NR</code> 用于记录总共的窗口个数。</p><p>临时内核映射用 <code>kmap_atomic()</code> 函数建立，用 <code>kunmap_atomic()</code> 函数撤销，这两个函数又涉及一大堆其他函数的调用，具体细节我暂时不想去了解了。</p></div><div class="row ps-3 pe-3"><div class="col-md-6 share-buttons"><strong>分享:</strong>
+<a class="btn icon-button bg-facebook" href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fmap%2f" target=_blank><i class="fab fa-facebook"></i>
+</a><a class="btn icon-button bg-twitter" href="https://twitter.com/share?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fmap%2f&text=%e5%86%85%e5%ad%98%e6%98%a0%e5%b0%84&via=FreeFlyingSheep%20%e7%9a%84%e5%8d%9a%e5%ae%a2" target=_blank><i class="fab fa-twitter"></i>
+</a><a class="btn icon-button bg-reddit" href="https://reddit.com/submit?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fmap%2f&title=%e5%86%85%e5%ad%98%e6%98%a0%e5%b0%84" target=_blank><i class="fab fa-reddit"></i>
+</a><a class="btn icon-button bg-linkedin" href="https://www.linkedin.com/shareArticle?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fmap%2f&title=%e5%86%85%e5%ad%98%e6%98%a0%e5%b0%84" target=_blank><i class="fab fa-linkedin"></i>
+</a><a class="btn icon-button bg-whatsapp" href="https://api.whatsapp.com/send?text=%e5%86%85%e5%ad%98%e6%98%a0%e5%b0%84 https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fmap%2f" target=_blank><i class="fab fa-whatsapp"></i>
+</a><a class="btn icon-button" href="mailto:?subject=%e5%86%85%e5%ad%98%e6%98%a0%e5%b0%84&body=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fmap%2f" target=_blank><i class="fas fa-envelope-open-text"></i></a></div><div class="col-md-6 btn-improve-page"><a href=https://github.com/FreeFlyingSheep/FreeFlyingSheep.github.io/edit//content/posts/kernel/memory/map.md title target=_blank rel=noopener><i class="fas fa-code-branch"></i>
+改善此页面</a></div></div><hr><div class="row next-prev-navigator"><div class="col-md-6 previous-article"><a href=/posts/kernel/memory/address/ title=内存寻址 class="btn filled-button"><div><i class="fas fa-chevron-circle-left"></i> 上一篇</div><div class=next-prev-text>内存寻址</div></a></div><div class="col-md-6 next-article"><a href=/posts/kernel/memory/model/ title=内存模型 class="btn filled-button"><div>下一篇 <i class="fas fa-chevron-circle-right"></i></div><div class=next-prev-text>内存模型</div></a></div></div><hr><script src=https://giscus.app/client.js data-repo=FreeFlyingSheep/FreeFlyingSheep.github.io data-repo-id=R_kgDORf53Rg data-category=Comments data-category-id=DIC_kwDORf53Rs4C325X data-mapping=url data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang crossorigin=anonymous async></script></div></div></div><a id=scroll-to-top class=btn type=button data-bs-toggle=tooltip data-bs-placement=left title="Scroll to top"><i class="fas fa-chevron-circle-up"></i></a></section><section class=toc-section id=toc-section><div class=toc-holder><h5 class="text-center ps-3">目录</h5><hr><div class=toc><nav id=TableOfContents><ul><li><a href=#高端内存页框的内存映射简介>高端内存页框的内存映射简介</a></li><li><a href=#永久内核映射>永久内核映射</a><ul><li><a href=#页表>页表</a></li><li><a href=#kmap-函数><code>kmap()</code> 函数</a></li><li><a href=#kunmap-函数><code>kunmap()</code> 函数</a></li></ul></li><li><a href=#临时内核映射>临时内核映射</a><ul><li><a href=#窗口>窗口</a></li></ul></li></ul></nav></div></div></section></div><footer id=footer class="container-fluid text-center align-content-center footer pb-2"><div class="container pt-5"><div class="row text-start"><div class="col-md-4 col-sm-12"><h5>导航</h5><ul><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#about>关于</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#skills>技能</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#experiences>工作经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#education>教育经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#projects>参与项目</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#recent-posts>最近博文</a></li><li class=nav-item><a class=smooth-scroll href=/tags/>标签</a></li><li class=nav-item><a class=smooth-scroll href=/categories/>类别</a></li></ul></div><div class="col-md-4 col-sm-12"><h5>联系方式:</h5><ul><li><a href=mailto:chris.chenfeiyang@gmail.com target=_blank rel=noopener><span><i class="fas fa-envelope"></i></span> <span>chris.chenfeiyang@gmail.com</span></a></li><li><a href=https://github.com/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-github"></i></span> <span>FreeFlyingSheep</span></a></li><li><a href=https://www.linkedin.com/in/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-linkedin"></i></span> <span>FreeFlyingSheep</span></a></li></ul></div></div></div><hr><div class=container><p id=disclaimer><strong>免责声明:</strong> 本主题使用 MIT 许可证。本博客使用署名—非商业性使用 4.0 协议国际版（CC BY-NC 4.0）许可证。</p></div><hr><div class=container><div class="row text-start"><div class=col-md-4><a id=theme href=https://github.com/hugo-toha/toha target=_blank rel=noopener><img src=/images/theme-logo_hu_be7279b2506ad3f1.png alt="Toha Theme Logo">
+Toha</a></div><div class="col-md-4 text-center">© 2023 版权所有。</div><div class="col-md-4 text-end"><a id=hugo href=https://gohugo.io/ target=_blank rel=noopener>Powered by
+<img src=/images/hugo-logo.svg alt="Hugo Logo" height=18></a></div></div></div></footer><script src=/application.526b71351c36e243e2d7f272cedce3393c291461a3b0a49f877f3a3b4995291d.js integrity="sha256-UmtxNRw24kPi1/JyztzjOTwpFGGjsKSfh386O0mVKR0=" defer></script></body></html>
