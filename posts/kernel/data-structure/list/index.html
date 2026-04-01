@@ -1,0 +1,474 @@
+<!doctype html><html lang=zh-cn><head><title>内核链表</title><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=X-UA-Compatible content="ie=edge"><link rel=canonical href=https://FreeFlyingSheep.github.io/posts/kernel/data-structure/list/><link rel=stylesheet href=/application.12d69a55a3afe94646716f1bcc2804b35a0b575ba94febbb0ec6e47bd0bef25f.css integrity="sha256-EtaaVaOv6UZGcW8bzCgEs1oLV1upT+u7Dsbke9C+8l8="><link rel=icon type=image/png href=/images/site/favicon_hu_bf1264eea1001669.png><meta property="og:title" content="内核链表"><meta property="og:type" content="website"><meta property="og:description" content="FreeFlyingSheep 的个人博客。"><meta property="og:image" content="https://FreeFlyingSheep.github.io/images/author/octocat.png"><meta property="og:url" content="https://FreeFlyingSheep.github.io/posts/kernel/data-structure/list/"><meta name=twitter:card content="summary"><meta name=twitter:title content="内核链表"><meta name=twitter:description content="Linux 内核学习笔记系列，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核链表。"><meta name=description content="内核链表"><script async src="https://www.googletagmanager.com/gtag/js?id=G-FF4B2FQP4C"></script><script>var doNotTrack=!1;if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FF4B2FQP4C")}</script><script integrity="sha256-DO4ugzEwhTW1Id1UIWn0gUJWaebCYOypeTit6LW4QB4=">let theme=localStorage.getItem("theme-scheme")||localStorage.getItem("darkmode:color-scheme")||"light";theme==="system"&&(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?theme="dark":theme="light"),document.documentElement.setAttribute("data-theme",theme)</script></head><body class="type-posts kind-page" data-bs-spy=scroll data-bs-target=#TableOfContents data-bs-offset=80><div class="container-fluid bg-secondary wrapper"><nav class="navbar navbar-expand-xl top-navbar shadow" id=top-navbar><div class=container><button class="navbar-toggler navbar-light" id=sidebar-toggler type=button>
+<i data-feather=sidebar></i>
+</button>
+<a class=navbar-brand href=/><img src=/images/site/logo_hu_bf1264eea1001669.png id=logo alt=Logo>
+FreeFlyingSheep 的博客</a>
+<button class="navbar-toggler navbar-light" id=navbar-toggler type=button data-bs-toggle=collapse data-bs-target=#top-nav-items aria-label=menu>
+<i data-feather=menu></i></button><div class="collapse navbar-collapse dynamic-navbar" id=top-nav-items><ul class="nav navbar-nav ms-auto"><li class=nav-item><a class=nav-link href=/#home>主页</a></li><li class=nav-item><a class=nav-link href=/#about>关于</a></li><li class=nav-item><a class=nav-link href=/#skills>技能</a></li><li class=nav-item><a class=nav-link href=/#experiences>工作经历</a></li><li class=nav-item><a class=nav-link href=/#education>教育经历</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=navbarDropdown role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false>更多的</a><div class=dropdown-menu aria-labelledby=navbarDropdown><a class=dropdown-item href=/#projects>参与项目</a>
+<a class=dropdown-item href=/#recent-posts>最近博文</a></div></li><div id=top-navbar-divider></div><li class=nav-item><a class=nav-link id=blog-link href=/posts>博文</a></li><li class=nav-item><a class=nav-link id=note-link href=/notes>笔记</a></li><li class=nav-item><a class=nav-link href=/tags/>标签</a></li><li class=nav-item><a class=nav-link href=/categories/>类别</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=themeSelector role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false><img id=navbar-theme-icon-svg class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme"></a><div id=themeMenu class="dropdown-menu dropdown-menu-icons-only" aria-labelledby=themeSelector><a class="dropdown-item nav-link" href=# data-scheme=light><img class=theme-icon src=/icons/sun-svgrepo-com.svg width=20 alt="Light Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=dark><img class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=system><img class=theme-icon src=/icons/computer-svgrepo-com.svg width=20 alt="System Theme"></a></div></li></ul></div></div><img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=main-logo alt=Logo>
+<img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=inverted-logo alt="Inverted Logo"></nav><section class=sidebar-section id=sidebar-section><div class=sidebar-holder><div class=sidebar id=sidebar><form class=mx-auto method=get action=/%20search><input type=text name=keyword placeholder data-search id=search-box></form><div class=sidebar-tree><ul class=tree id=tree><li id=list-heading><a href=/%20/posts/ data-filter=all>博文</a></li><div class=subtree><li><a class=list-link href=/posts/introduction/ title=引言>引言</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/> AI</a><ul><li><a class=list-link href=/posts/ai/ai/ title="AI 学习笔记">AI 学习笔记</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/nlp/> NLP</a><ul><li><a class=list-link href=/posts/ai/nlp/basic/ title="NLP 基础概念">NLP 基础概念</a></li><li><a class=list-link href=/posts/ai/nlp/core/ title="NLP 系统">NLP 系统</a></li><li><a class=list-link href=/posts/ai/nlp/supplement/ title="NLP 补充内容">NLP 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/llm/> LLM</a><ul><li><a class=list-link href=/posts/ai/llm/basic/ title="LLM 基本概念">LLM 基本概念</a></li><li><a class=list-link href=/posts/ai/llm/usage/ title="LLM 的使用">LLM 的使用</a></li><li><a class=list-link href=/posts/ai/llm/supplement/ title="LLM 补充内容">LLM 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/agent/> Agent</a><ul><li><a class=list-link href=/posts/ai/agent/basic/ title="Agent 基本概念">Agent 基本概念</a></li><li><a class=list-link href=/posts/ai/agent/mcp/ title="MCP 相关概念">MCP 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/rag/ title="RAG 相关概念">RAG 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/demo/ title="股票分析 Demo">股票分析 Demo</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/git/> Git</a><ul><li><a class=list-link href=/posts/git/command/ title="Git 常用命令">Git 常用命令</a></li><li><a class=list-link href=/posts/git/patch/ title="Git 打补丁">Git 打补丁</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/linux/> Linux</a><ul><li><a class=list-link href=/posts/linux/arch/ title="安装 Arch Linux">安装 Arch Linux</a></li><li><a class=list-link href=/posts/linux/wsl/ title="安装 WSL">安装 WSL</a></li><li><a class=list-link href=/posts/linux/lfs/ title="构建 LFS 系统">构建 LFS 系统</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/loongarch/> LoongArch</a><ul><li><a class=list-link href=/posts/loongarch/assembly/ title="LoongArch 汇编">LoongArch 汇编</a></li><li><a class=list-link href=/posts/loongarch/develop/ title="在 LoongArch 上开发">在 LoongArch 上开发</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/mips/> MIPS</a><ul><li><a class=list-link href=/posts/mips/see-mips-run/ title="MIPS 体系结构">MIPS 体系结构</a></li><li><a class=list-link href=/posts/mips/assembly/ title="MIPS 汇编">MIPS 汇编</a></li><li><a class=list-link href=/posts/mips/supplement/ title=MIPS（补充内容）>MIPS（补充内容）</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/openstack/> OpenStack</a><ul><li><a class=list-link href=/posts/openstack/introduction/ title="OpenStack 简介">OpenStack 简介</a></li><li><a class=list-link href=/posts/openstack/lemote/ title="在龙芯上移植 OpenStack">在龙芯上移植 OpenStack</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/rt-thread/> RT-Thread</a><ul><li><a class=list-link href=/posts/rt-thread/loongarch32/ title="移植 RT-Thread 到 LoongArch32">移植 RT-Thread 到 LoongArch32</a></li><li><a class=list-link href=/posts/rt-thread/loongarch64/ title="移植 RT-Thread 到 LoongArch64">移植 RT-Thread 到 LoongArch64</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/valgrind/> Valgrind</a><ul><li><a class=list-link href=/posts/valgrind/libvex/ title="libVEX 简介">libVEX 简介</a></li><li><a class=list-link href=/posts/valgrind/loongarch/ title="Valgrind for LoongArch">Valgrind for LoongArch</a></li><li><a class=list-link href=/posts/valgrind/valgrind/ title="Valgrind 简介">Valgrind 简介</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/> 内核</a><ul class=active><li><a class=list-link href=/posts/kernel/kernel/ title="Linux 内核学习笔记">Linux 内核学习笔记</a></li><li><a class=list-link href=/posts/kernel/todo/ title="TODO 列表">TODO 列表</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/memory/> 内存管理</a><ul><li><a class=list-link href=/posts/kernel/memory/bootmem/ title="bootmem 分配器">bootmem 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/per-cpu/ title="per-CPU 高速缓存">per-CPU 高速缓存</a></li><li><a class=list-link href=/posts/kernel/memory/slab/ title="slab 分配器">slab 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/buddy-system/ title=伙伴系统>伙伴系统</a></li><li><a class=list-link href=/posts/kernel/memory/address/ title=内存寻址>内存寻址</a></li><li><a class=list-link href=/posts/kernel/memory/map/ title=内存映射>内存映射</a></li><li><a class=list-link href=/posts/kernel/memory/model/ title=内存模型>内存模型</a></li><li><a class=list-link href=/posts/kernel/memory/initialization/ title=内存管理初始化>内存管理初始化</a></li><li><a class=list-link href=/posts/kernel/memory/supplement/ title=内存管理补充>内存管理补充</a></li><li><a class=list-link href=/posts/kernel/memory/continuous/ title=连续页框的管理>连续页框的管理</a></li><li><a class=list-link href=/posts/kernel/memory/uncontinuous/ title=非连续页框的管理>非连续页框的管理</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/develop/> 开发</a><ul><li><a class=list-link href=/posts/kernel/develop/arch/ title=体系结构相关知识>体系结构相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/develop/ title=内核开发相关知识>内核开发相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/build/ title=内核编译和调试>内核编译和调试</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/data-structure/> 数据结构</a><ul class=active><li><a class=list-link href=/posts/kernel/data-structure/expansion/ title="GCC 扩展语法">GCC 扩展语法</a></li><li><a class=list-link href=/posts/kernel/data-structure/bitmap/ title=内核位图>内核位图</a></li><li><a class=list-link href=/posts/kernel/data-structure/radix-tree/ title=内核基数树>内核基数树</a></li><li><a class=list-link href=/posts/kernel/data-structure/hlist/ title=内核散列表>内核散列表</a></li><li><a class=list-link href=/posts/kernel/data-structure/rbtree/ title=内核红黑树>内核红黑树</a></li><li><a class="active list-link" href=/posts/kernel/data-structure/list/ title=内核链表>内核链表</a></li><li><a class=list-link href=/posts/kernel/data-structure/kfifo/ title=内核队列>内核队列</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/miscellaneous/> 杂项</a><ul><li><a class=list-link href=/posts/kernel/miscellaneous/dynamic-debug/ title=动态调试>动态调试</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/macros-pitfalls/ title=宏的陷阱和使用技巧>宏的陷阱和使用技巧</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/predefined-macros/ title=预定义宏>预定义宏</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/introduction/> 简介</a><ul><li><a class=list-link href=/posts/kernel/introduction/basis/ title="Linux 内核基础">Linux 内核基础</a></li><li><a class=list-link href=/posts/kernel/introduction/common/ title="Linux 内核常见函数/宏">Linux 内核常见函数/宏</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/tips/> 技巧</a><ul><li><a class=list-link href=/posts/tips/github/ title="Github 模板">Github 模板</a></li><li><a class=list-link href=/posts/tips/generic-entry/ title="Linux 中断和系统调用通用框架">Linux 中断和系统调用通用框架</a></li><li><a class=list-link href=/posts/tips/mips-boot/ title="Linux/MIPS 启动">Linux/MIPS 启动</a></li><li><a class=list-link href=/posts/tips/shell-redirect/ title="shell 重定向小技巧">shell 重定向小技巧</a></li><li><a class=list-link href=/posts/tips/hugo/ title="使用 Hugo 搭建个人博客">使用 Hugo 搭建个人博客</a></li><li><a class=list-link href=/posts/tips/zsh/ title="使用 Zsh">使用 Zsh</a></li><li><a class=list-link href=/posts/tips/linux-version/ title="查看 Linux 版本">查看 Linux 版本</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/virtualization/> 虚拟化</a><ul><li><a class=list-link href=/posts/virtualization/kvm/ title="KVM 简介">KVM 简介</a></li><li><a class=list-link href=/posts/virtualization/qemu/ title="QEMU 简介">QEMU 简介</a></li></ul></li></div></ul></div></div></div></section><section class=content-section id=content-section><div class=content><div class="container p-0 read-area"><div class="hero-area col-sm-12" id=hero-area style=background-image:url(/images/default-hero_hu_1e630a6e35d8e16.jpg)></div><div class=page-content><div class="author-profile ms-auto align-self-lg-center"><img class=rounded-circle src=/images/author/octocat_hu_88b3a7924ca87a69.png alt="Author Image"><h5 class=author-name>FreeFlyingSheep</h5><p class=text-muted>Monday, September 28, 2020 |
+11 分钟</p></div><div class=title><h1>内核链表</h1></div><div class=tags><ul style=padding-left:0><li><a href=/tags/linux-%E5%86%85%E6%A0%B8/ class="btn btn-sm btn-outline-info rounded">Linux 内核</a></li><li><a href=/tags/%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/ class="btn btn-sm btn-outline-info rounded">内核数据结构</a></li><li><a href=/tags/%E9%93%BE%E8%A1%A8/ class="btn btn-sm btn-outline-info rounded">链表</a></li></ul></div><div class=post-content id=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核链表。</p><h2 id=传统的链表与内核链表>传统的链表与内核链表</h2><p>在通常情况下，假设我们需要一个描述狐狸信息的双向链表：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> tail_length; <span style=color:#75715e>/* 尾巴长度，以厘米为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> weight;      <span style=color:#75715e>/* 重量，以千克为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>bool</span> is_fantastic;         <span style=color:#75715e>/* 这只狐狸奇妙吗? */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>next;          <span style=color:#75715e>/* 指向下一只狐狸 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>prev;          <span style=color:#75715e>/* 指向前一只狐狸 */</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>我们会在 <code>fox</code> 结构体添加该结构体的指针，这样 <code>fox</code> 数据结构（即链表的结点）就能被塞入链表。</p><p>然后我们针对 <code>fox</code> 结构体实现相关的链表操作，比如添加狐狸：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>add_fox</span>(<span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>list, <span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>现在我们又需要一个描述兔子信息的双向链表，自然我们需要定义一个新的结构体：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> rabbit {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> weight;      <span style=color:#75715e>/* 重量，以千克为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>bool</span> is_fantastic;         <span style=color:#75715e>/* 这只兔子奇妙吗? */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> rabbit <span style=color:#f92672>*</span>next;       <span style=color:#75715e>/* 指向下一只兔子 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> rabbit <span style=color:#f92672>*</span>prev;       <span style=color:#75715e>/* 指向前一只兔子 */</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>然后我们需要针对 <code>rabbit</code> 结构体实现相关的链表操作，比如添加狐狸：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>add_rabbit</span>(<span style=color:#66d9ef>struct</span> rabbit <span style=color:#f92672>*</span>list, <span style=color:#66d9ef>struct</span> rabbit <span style=color:#f92672>*</span>r)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这时候就有人提出了，我们已经为 <code>fox</code> 结构体定义过了相关的操作，但为了 <code>rabbit</code> 结构体我们需要再次实现几乎完全一样的功能，这是重复劳动。</p><p>我们希望实现一个更加通用的方案，针对链表的操作应该对所有情况都适用（比如上面的 <code>fox</code> 和 <code>rabbit</code>）。显然传统的链表是无法解决这一问题的，因而与传统的方式相反，内核把链表结点塞入其他数据结构，实现了一种独特解法。</p><p>内核链表是一个独特的双向循环链表，下面我们先展示内核链表的用法，再介绍其具体实现。</p><h2 id=内核链表的使用>内核链表的使用</h2><p>内核链表实现称为 <code>list</code>，头文件为 <code>include/linux/list.h</code>。它实现了通用的链表操作，仍然以 <code>fox</code> 结构体为例，下面展示内核链表的常见用法。</p><h3 id=定义链表>定义链表</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> tail_length; <span style=color:#75715e>/* 尾巴长度，以厘米为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> weight;      <span style=color:#75715e>/* 重量，以千克为单位 */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>bool</span> is_fantastic;         <span style=color:#75715e>/* 这只狐狸奇妙吗? */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head list;     <span style=color:#75715e>/* 所有 fox 结构体形成链表 */</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h3 id=初始化链表>初始化链表</h3><h4 id=动态初始化>动态初始化</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f;
+</span></span><span style=display:flex><span>f <span style=color:#f92672>=</span> <span style=color:#a6e22e>kmalloc</span>(<span style=color:#66d9ef>sizeof</span>(<span style=color:#f92672>*</span>f), GFP_KERNEL);
+</span></span><span style=display:flex><span>f<span style=color:#f92672>-&gt;</span>tail_length <span style=color:#f92672>=</span> <span style=color:#ae81ff>40</span>;
+</span></span><span style=display:flex><span>f<span style=color:#f92672>-&gt;</span>weight <span style=color:#f92672>=</span> <span style=color:#ae81ff>6</span>;
+</span></span><span style=display:flex><span>f<span style=color:#f92672>-&gt;</span>is_fantastic <span style=color:#f92672>=</span> false;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>INIT_LIST_HEAD</span>(<span style=color:#f92672>&amp;</span>f<span style=color:#f92672>-&gt;</span>list);
+</span></span></code></pre></div><h4 id=静态初始化>静态初始化</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox f <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>    .tail_length <span style=color:#f92672>=</span> <span style=color:#ae81ff>40</span>,
+</span></span><span style=display:flex><span>    .weight <span style=color:#f92672>=</span> <span style=color:#ae81ff>6</span>,
+</span></span><span style=display:flex><span>    .list <span style=color:#f92672>=</span> <span style=color:#a6e22e>LIST_HEAD_INIT</span>(f.list),
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h4 id=定义链表头>定义链表头</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#a6e22e>LIST_HEAD</span>(fox_list);
+</span></span></code></pre></div><h3 id=添加结点>添加结点</h3><h4 id=在头部添加结点>在头部添加结点</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#a6e22e>list_add</span>(<span style=color:#f92672>&amp;</span>f<span style=color:#f92672>-&gt;</span>list, <span style=color:#f92672>&amp;</span>fox_list);
+</span></span></code></pre></div><h4 id=在尾部添加结点>在尾部添加结点</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#a6e22e>list_add_tail</span>(<span style=color:#f92672>&amp;</span>f<span style=color:#f92672>-&gt;</span>list, <span style=color:#f92672>&amp;</span>fox_list);
+</span></span></code></pre></div><h3 id=删除结点>删除结点</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#a6e22e>list_del</span>(<span style=color:#f92672>&amp;</span>f<span style=color:#f92672>-&gt;</span>list);
+</span></span></code></pre></div><h3 id=遍历链表>遍历链表</h3><h4 id=基本方法>基本方法</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>p;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>list_for_each</span>(p, <span style=color:#f92672>&amp;</span>fox_list) {
+</span></span><span style=display:flex><span>    f <span style=color:#f92672>=</span> <span style=color:#a6e22e>list_entry</span>(p, <span style=color:#66d9ef>struct</span> fox, list);
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h4 id=常用方法>常用方法</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>list_for_each_entry</span>(f, <span style=color:#f92672>&amp;</span>fox_list, list) {
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h4 id=遍历时删除>遍历时删除</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f, <span style=color:#f92672>*</span>next;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>list_for_each_entry_safe</span>(f, next, <span style=color:#f92672>&amp;</span>fox_list, list) {
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h2 id=内核链表的实现>内核链表的实现</h2><p>所有内核链表的实现均位于 <code>include/linux/list.h</code>。</p><h3 id=链表结构体的实现>链表结构体的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> list_head {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>next, <span style=color:#f92672>*</span>prev;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h3 id=初始化链表的实现>初始化链表的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#define LIST_HEAD_INIT(name) { &amp;(name), &amp;(name) }
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define LIST_HEAD(name) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    struct list_head name = LIST_HEAD_INIT(name)
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>INIT_LIST_HEAD</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> list;
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> list;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=相关判断的实现>相关判断的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_is_last - tests whether @list is the last entry in list @head
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the entry to test
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head of the list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>list_is_last</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                               <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> list<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>==</span> head;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_empty - tests whether a list is empty
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the list to test.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>list_empty</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> head<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>==</span> head;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_empty_careful - tests whether a list is empty and not being modified
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the list to test
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Description:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * tests whether a list is empty _and_ checks that no other CPU might be
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * in the process of modifying either member (next or prev)
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * NOTE: using list_empty_careful() without synchronization
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * can only be safe if the only activity that can happen
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * to the list entry is list_del_init(). Eg. it cannot be used
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * if another CPU could re-list_add() it.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>list_empty_careful</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>next <span style=color:#f92672>=</span> head<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> (next <span style=color:#f92672>==</span> head) <span style=color:#f92672>&amp;&amp;</span> (next <span style=color:#f92672>==</span> head<span style=color:#f92672>-&gt;</span>prev);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_is_singular - tests whether a list has just one entry.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the list to test.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>list_is_singular</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(head) <span style=color:#f92672>&amp;&amp;</span> (head<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>==</span> head<span style=color:#f92672>-&gt;</span>prev);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=添加结点的实现>添加结点的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__list_add</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>new,
+</span></span><span style=display:flex><span>                              <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>prev,
+</span></span><span style=display:flex><span>                              <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>next)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    next<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> new;
+</span></span><span style=display:flex><span>    new<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> next;
+</span></span><span style=display:flex><span>    new<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> prev;
+</span></span><span style=display:flex><span>    prev<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> new;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_add - add a new entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @new: new entry to be added
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: list head to add it after
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Insert a new entry after the specified head.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This is good for implementing stacks.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_add</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>new, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_add</span>(new, head, head<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_add_tail - add a new entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @new: new entry to be added
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: list head to add it before
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Insert a new entry before the specified head.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This is useful for implementing queues.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_add_tail</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>new, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_add</span>(new, head<span style=color:#f92672>-&gt;</span>prev, head);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=删除结点的实现>删除结点的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Delete a list entry by making the prev/next entries
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * point to each other.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This is only for internal list manipulation where we know
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * the prev/next entries already!
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__list_del</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span> prev, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span> next)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    next<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> prev;
+</span></span><span style=display:flex><span>    prev<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> next;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_del - deletes entry from list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @entry: the element to delete from the list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Note: list_empty() on entry does not return true after this, the entry is
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * in an undefined state.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_del</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>entry)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_del</span>(entry<span style=color:#f92672>-&gt;</span>prev, entry<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>    entry<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> LIST_POISON1;
+</span></span><span style=display:flex><span>    entry<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> LIST_POISON2;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_del_init - deletes entry from list and reinitialize it.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @entry: the element to delete from the list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_del_init</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>entry)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_del</span>(entry<span style=color:#f92672>-&gt;</span>prev, entry<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>INIT_LIST_HEAD</span>(entry);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>值得注意的是，<code>list_del()</code> 函数在调用 <code>__list_del()</code> 函数完成删除 <code>entry</code> 后，仍然设置了 <code>entry</code> 的指针。<code>LIST_POISON1</code> 和 <code>LIST_POISON2</code> 被定义于 <code>include/linux/poison.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/********** include/linux/list.h **********/</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Architectures might want to move the poison pointer offset
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * into some well-recognized area such as 0xdead000000000000,
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * that is also not mappable by user-space exploits:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_ILLEGAL_POINTER_VALUE
+</span></span></span><span style=display:flex><span><span style=color:#75715e># define POISON_POINTER_DELTA _AC(CONFIG_ILLEGAL_POINTER_VALUE, UL)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span><span style=color:#75715e># define POISON_POINTER_DELTA 0
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * These are non-NULL pointers that will result in page faults
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * under normal circumstances, used to verify that nobody uses
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * non-initialized list entries.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define LIST_POISON1 ((void *) 0x00100100 + POISON_POINTER_DELTA)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define LIST_POISON2 ((void *) 0x00200200 + POISON_POINTER_DELTA)
+</span></span></span></code></pre></div><p>根据注释，设置这两个值是为了在循环中遍历到 <code>entry</code> 时触发页面异常，这相当于加了一道保险，毕竟不应该出现遍历已经删除了的结点的情况。</p><p>与 <code>list_del()</code> 形成对比，<code>list_del_init()</code> 在删除 <code>entry</code> 后，重新初始化 <code>entry</code>，这是为了能再次使用包含 <code>entry</code> 的数据结构，比如需要把该数据结构重新添加到链表中（正如刚刚说的，如果使用 <code>list_add()</code> 添加 <code>list_del()</code> 后的 <code>entry</code>，遍历时会发生页面异常）。</p><h3 id=移动结点的实现>移动结点的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_move - delete from one list and add as another&#39;s head
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the entry to move
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head that will precede our entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_move</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_del</span>(list<span style=color:#f92672>-&gt;</span>prev, list<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>list_add</span>(list, head);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_move_tail - delete from one list and add as another&#39;s tail
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the entry to move
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head that will follow our entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_move_tail</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                  <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__list_del</span>(list<span style=color:#f92672>-&gt;</span>prev, list<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>list_add_tail</span>(list, head);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_rotate_left - rotate the list to the left
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head of the list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_rotate_left</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>first;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(head)) {
+</span></span><span style=display:flex><span>        first <span style=color:#f92672>=</span> head<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>list_move_tail</span>(first, head);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>其中，<code>list_rotate_left()</code> 函数用于将链表的第一个结点移动至末尾。</p><h3 id=拆分链表的实现>拆分链表的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__list_cut_position</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>entry)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>new_first <span style=color:#f92672>=</span> entry<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> head<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>next<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> list;
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> entry;
+</span></span><span style=display:flex><span>    entry<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> list;
+</span></span><span style=display:flex><span>    head<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> new_first;
+</span></span><span style=display:flex><span>    new_first<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> head;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_cut_position - cut a list into two
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: a new list to add all removed entries
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: a list with entries
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @entry: an entry within head, could be the head itself
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *      and if so we won&#39;t cut the list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This helper moves the initial part of @head, up to and
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * including @entry, from @head to @list. You should
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * pass on @entry an element you know is on @head. @list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * should be an empty list or a list you do not care about
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * losing its data.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_cut_position</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head, <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>entry)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>list_empty</span>(head))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>list_is_singular</span>(head) <span style=color:#f92672>&amp;&amp;</span>
+</span></span><span style=display:flex><span>        (head<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>!=</span> entry <span style=color:#f92672>&amp;&amp;</span> head <span style=color:#f92672>!=</span> entry))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (entry <span style=color:#f92672>==</span> head)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>INIT_LIST_HEAD</span>(list);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>else</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_cut_position</span>(list, head, entry);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=合并链表的实现>合并链表的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__list_splice</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                 <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>prev,
+</span></span><span style=display:flex><span>                                 <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>next)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>first <span style=color:#f92672>=</span> list<span style=color:#f92672>-&gt;</span>next;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>last <span style=color:#f92672>=</span> list<span style=color:#f92672>-&gt;</span>prev;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    first<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> prev;
+</span></span><span style=display:flex><span>    prev<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> first;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    last<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> next;
+</span></span><span style=display:flex><span>    next<span style=color:#f92672>-&gt;</span>prev <span style=color:#f92672>=</span> last;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_splice - join two lists, this is designed for stacks
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the new list to add.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the place to add it in the first list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_splice</span>(<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                               <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(list))
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_splice</span>(list, head, head<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_splice_tail - join two lists, each list being a queue
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the new list to add.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the place to add it in the first list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_splice_tail</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(list))
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_splice</span>(list, head<span style=color:#f92672>-&gt;</span>prev, head);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_splice_init - join two lists and reinitialise the emptied list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the new list to add.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the place to add it in the first list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The list at @list is reinitialised
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_splice_init</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                    <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(list)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_splice</span>(list, head, head<span style=color:#f92672>-&gt;</span>next);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>INIT_LIST_HEAD</span>(list);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_splice_tail_init - join two lists and reinitialise the emptied list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @list: the new list to add.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the place to add it in the first list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Each of the lists is a queue.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The list at @list is reinitialised
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>list_splice_tail_init</span>(<span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>list,
+</span></span><span style=display:flex><span>                                         <span style=color:#66d9ef>struct</span> list_head <span style=color:#f92672>*</span>head)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>list_empty</span>(list)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>__list_splice</span>(list, head<span style=color:#f92672>-&gt;</span>prev, head);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>INIT_LIST_HEAD</span>(list);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=获取包含结点的数据结构>获取包含结点的数据结构</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_entry - get the struct for this entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @ptr:    the &amp;struct list_head pointer.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @type:   the type of the struct this is embedded in.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_entry(ptr, type, member) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    container_of(ptr, type, member)
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_first_entry - get the first element from a list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @ptr:    the list head to take the element from.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @type:   the type of the struct this is embedded in.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Note, that list is expected to be not empty.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_first_entry(ptr, type, member) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    list_entry((ptr)-&gt;next, type, member)
+</span></span></span></code></pre></div><p><code>container_of()</code> 宏位于 <code>include/linux/kernel.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * container_of - cast a member of a structure out to the containing structure
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @ptr:    the pointer to the member.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @type:   the type of the container struct this is embedded in.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the member within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define container_of(ptr, type, member) ({                  \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    const typeof( ((type *)0)-&gt;member ) *__mptr = (ptr);    \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    (type *)( (char *)__mptr - offsetof(type, member) );})
+</span></span></span></code></pre></div><p>该宏用到的 <code>offsetof()</code> 宏位于 <code>include/linux/stddef.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#ifdef __compiler_offsetof
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define offsetof(TYPE,MEMBER) __compiler_offsetof(TYPE,MEMBER)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define offsetof(TYPE, MEMBER) ((size_t) &amp;((TYPE *)0)-&gt;MEMBER)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span></code></pre></div><p>先来看宏 <code>offsetof()</code> 宏的思路。若编译器内置了相关功能，则使用内置的 <code>__compiler_offsetof()</code>，否则使用自定义的宏。<code>offsetof()</code> 的作用正如其名，获取 <code>TYPE</code> 类型结构体的成员 <code>MEMBER</code> 在该结构体中的偏移量：</p><ol><li><code>(TYPE *)0</code>：强制类型转换，把 <code>0</code> 转换成指向 <code>TYPE</code> 类型的指针。</li><li><code>((TYPE *)0)->MEMBER</code>：获取 <code>TYPE</code> 类型结构体的成员 <code>MEMBER</code>。</li><li><code>&((TYPE *)0)->MEMBER</code>：获取该成员的地址。</li><li><code>(size_t) &((TYPE *)0)->MEMBER</code>：把地址强制类型转换为 <code>size_t</code> 类型。</li></ol><p>编译器在计算结构体成员的地址时，采用“成员地址 = 结构体首地址 + 成员偏移量”的方式，而这里巧妙地借助了 <code>0</code> 地址，把结构体首地址设为 <code>0</code>，得到的成员地址就等于成员偏移量。注意，这里只是获取了 <code>MEMBER</code>，即编译器只需要进行一些简单的地址计算，而无需实际访问相关的地址，因此不会生成相应的访存指令，也就不会导致运行时错误。</p><p>再来看 <code>container_of()</code> 宏，有很多相似的地方，该宏获通过指向 <code>type</code> 类型结构体的成员 <code>member</code> 的指针 <code>ptr</code> 来获取该结构体本身：</p><ol><li><code>(type *)0</code>：强制类型转换，把 <code>0</code> 转换成指向 <code>type</code> 类型的指针。</li><li><code>((type *)0)->member</code>：获取 <code>type</code> 类型结构体的成员 <code>member</code>。</li><li><code>typeof( ((type *)0)->member )</code>：获取 <code>member</code> 的类型，记为 <code>T</code>。</li><li><code>const typeof( ((type *)0)->member ) *__mptr = (ptr);</code>：定义一个 <code>const T *</code> 类型的变量 <code>__mptr</code>，并赋值为 <code>ptr</code>。</li><li><code>(char *)__mptr</code>：将 <code>__mptr</code> 强制转换成 <code>char *</code> 类型（<code>char *</code> 指针加 <code>1</code> 的语义是增加 <code>1</code> 字节）。</li><li><code>(char *)__mptr - offsetof(type, member)</code>：把 <code>__mptr</code> 的地址减去 <code>member</code> 在 <code>type</code> 类型结构体中的偏移量，计算结果为 <code>type</code> 类型结构体的首地址。</li><li><code>(type *)( (char *)__mptr - offsetof(type, member) );</code>：把计算结果（结构体的首地址）强制转换为 <code>type *</code> 类型。</li></ol><p>其中，<code>typeof</code> 关键字是 GCC 扩展语法，<code>typeof(exp) var</code> 能获取表达式 <code>exp</code> 的计算结果的类型，并声明该类型的变量 <code>var</code>。比如 <code>typeof(1 + 1) a;</code>，因为表达式 <code>1 + 1</code> 的结果是 <code>int</code> 类型，所以变量 <code>a</code> 也是 <code>int</code> 类型。</p><p>额外定义一个 <code>__mptr</code> 看似是多余的，这么做的理由是为了方便程序员发现错误。具体来说，如果 <code>ptr</code> 的类型和 <code>member</code> 不一致，那么在编译 <code>const typeof( ((type *)0)->member ) *__mptr = (ptr);</code> 时会产生警告，以便让程序员注意到自己犯了错误。</p><p>最后来看 <code>list_entry()</code> 和 <code>list_first_entry()</code> 宏，就很好理解了。以上文的 <code>fox</code> 结构体为例，通过一个指向 <code>struct fox</code> 成员 <code>list</code> 的指针 <code>p</code>，来获取该结构体本身：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> fox <span style=color:#f92672>*</span>f;
+</span></span><span style=display:flex><span>f <span style=color:#f92672>=</span> <span style=color:#a6e22e>list_entry</span>(p,          <span style=color:#75715e>// 指向结构体成员的指针
+</span></span></span><span style=display:flex><span>               <span style=color:#66d9ef>struct</span> fox, <span style=color:#75715e>// 结构体类型
+</span></span></span><span style=display:flex><span>               list        <span style=color:#75715e>// 成员名
+</span></span></span><span style=display:flex><span>              );
+</span></span></code></pre></div><h3 id=遍历链表的实现>遍历链表的实现</h3><p>遍历链表的函数相当多，这里只列出几个。</p><h4 id=基本方法的实现>基本方法的实现</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_for_each - iterate over a list
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @pos:  the &amp;struct list_head to use as a loop cursor.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head: the head for your list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_for_each(pos, head) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    for (pos = (head)-&gt;next; prefetch(pos-&gt;next), pos != (head); \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>            pos = pos-&gt;next)
+</span></span></span></code></pre></div><p>大部分的遍历都通过 <code>prefetch()</code> 来优化遍历速度，<code>prefetch()</code> 借助了 GCC 扩展语法，定义于 <code>include/linux/prefetch.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetch(x) attempts to pre-emptively get the memory pointed to
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    by address &#34;x&#34; into the CPU L1 cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetch(x) should not cause any kind of exception, prefetch(0) is
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    specifically ok.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetch() should be defined by the architecture, if not, the
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    #define below provides a no-op define.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    There are 3 prefetch() macros:
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetch(x)     - prefetches the cacheline at &#34;x&#34; for read
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    prefetchw(x)    - prefetches the cacheline at &#34;x&#34; for write
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    spin_lock_prefetch(x) - prefetches the spinlock *x for taking
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    there is also PREFETCH_STRIDE which is the architecure-prefered
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    &#34;lookahead&#34; size for prefetching streamed operations.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>*/</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifndef ARCH_HAS_PREFETCH
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define prefetch(x) __builtin_prefetch(x)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span></code></pre></div><p>使用这种方法遍历链表，往往要借助 <code>list_entry()</code> 来获取结构体，比较麻烦，因此不常用。</p><h4 id=常用方法的实现>常用方法的实现</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_for_each_entry - iterate over list of given type
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @pos:    the type * to use as a loop cursor.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head:   the head for your list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_for_each_entry(pos, head, member)                      \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    for (pos = list_entry((head)-&gt;next, typeof(*pos), member);      \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         prefetch(pos-&gt;member.next), &amp;pos-&gt;member != (head);        \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         pos = list_entry(pos-&gt;member.next, typeof(*pos), member))
+</span></span></span></code></pre></div><h4 id=反向遍历的实现>反向遍历的实现</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_for_each_entry_reverse - iterate backwards over list of given type.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @pos:    the type * to use as a loop cursor.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head:   the head for your list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_for_each_entry_reverse(pos, head, member)              \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    for (pos = list_entry((head)-&gt;prev, typeof(*pos), member);      \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         prefetch(pos-&gt;member.prev), &amp;pos-&gt;member != (head);        \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         pos = list_entry(pos-&gt;member.prev, typeof(*pos), member))
+</span></span></span></code></pre></div><h4 id=遍历时删除的实现>遍历时删除的实现</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * list_for_each_entry_safe - iterate over list of given type safe against removal of list entry
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @pos:    the type * to use as a loop cursor.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @n:      another type * to use as temporary storage
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @head:   the head for your list.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @member: the name of the list_struct within the struct.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define list_for_each_entry_safe(pos, n, head, member)              \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    for (pos = list_entry((head)-&gt;next, typeof(*pos), member),      \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>            n = list_entry(pos-&gt;member.next, typeof(*pos), member); \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         &amp;pos-&gt;member != (head);                                    \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         pos = n, n = list_entry(n-&gt;member.next, typeof(*n), member))
+</span></span></span></code></pre></div></div><div class="row ps-3 pe-3"><div class="col-md-6 share-buttons"><strong>分享:</strong>
+<a class="btn icon-button bg-facebook" href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2flist%2f" target=_blank><i class="fab fa-facebook"></i>
+</a><a class="btn icon-button bg-twitter" href="https://twitter.com/share?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2flist%2f&text=%e5%86%85%e6%a0%b8%e9%93%be%e8%a1%a8&via=FreeFlyingSheep%20%e7%9a%84%e5%8d%9a%e5%ae%a2" target=_blank><i class="fab fa-twitter"></i>
+</a><a class="btn icon-button bg-reddit" href="https://reddit.com/submit?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2flist%2f&title=%e5%86%85%e6%a0%b8%e9%93%be%e8%a1%a8" target=_blank><i class="fab fa-reddit"></i>
+</a><a class="btn icon-button bg-linkedin" href="https://www.linkedin.com/shareArticle?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2flist%2f&title=%e5%86%85%e6%a0%b8%e9%93%be%e8%a1%a8" target=_blank><i class="fab fa-linkedin"></i>
+</a><a class="btn icon-button bg-whatsapp" href="https://api.whatsapp.com/send?text=%e5%86%85%e6%a0%b8%e9%93%be%e8%a1%a8 https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2flist%2f" target=_blank><i class="fab fa-whatsapp"></i>
+</a><a class="btn icon-button" href="mailto:?subject=%e5%86%85%e6%a0%b8%e9%93%be%e8%a1%a8&body=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2flist%2f" target=_blank><i class="fas fa-envelope-open-text"></i></a></div><div class="col-md-6 btn-improve-page"><a href=https://github.com/FreeFlyingSheep/FreeFlyingSheep.github.io/edit//content/posts/kernel/data-structure/list.md title target=_blank rel=noopener><i class="fas fa-code-branch"></i>
+改善此页面</a></div></div><hr><div class="row next-prev-navigator"><div class="col-md-6 previous-article"><a href=/posts/kernel/data-structure/rbtree/ title=内核红黑树 class="btn filled-button"><div><i class="fas fa-chevron-circle-left"></i> 上一篇</div><div class=next-prev-text>内核红黑树</div></a></div><div class="col-md-6 next-article"><a href=/posts/kernel/data-structure/kfifo/ title=内核队列 class="btn filled-button"><div>下一篇 <i class="fas fa-chevron-circle-right"></i></div><div class=next-prev-text>内核队列</div></a></div></div><hr><script src=https://giscus.app/client.js data-repo=FreeFlyingSheep/FreeFlyingSheep.github.io data-repo-id=R_kgDORf53Rg data-category=Comments data-category-id=DIC_kwDORf53Rs4C325X data-mapping=url data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang crossorigin=anonymous async></script></div></div></div><a id=scroll-to-top class=btn type=button data-bs-toggle=tooltip data-bs-placement=left title="Scroll to top"><i class="fas fa-chevron-circle-up"></i></a></section><section class=toc-section id=toc-section><div class=toc-holder><h5 class="text-center ps-3">目录</h5><hr><div class=toc><nav id=TableOfContents><ul><li><a href=#传统的链表与内核链表>传统的链表与内核链表</a></li><li><a href=#内核链表的使用>内核链表的使用</a><ul><li><a href=#定义链表>定义链表</a></li><li><a href=#初始化链表>初始化链表</a><ul><li><a href=#动态初始化>动态初始化</a></li><li><a href=#静态初始化>静态初始化</a></li><li><a href=#定义链表头>定义链表头</a></li></ul></li><li><a href=#添加结点>添加结点</a><ul><li><a href=#在头部添加结点>在头部添加结点</a></li><li><a href=#在尾部添加结点>在尾部添加结点</a></li></ul></li><li><a href=#删除结点>删除结点</a></li><li><a href=#遍历链表>遍历链表</a><ul><li><a href=#基本方法>基本方法</a></li><li><a href=#常用方法>常用方法</a></li><li><a href=#遍历时删除>遍历时删除</a></li></ul></li></ul></li><li><a href=#内核链表的实现>内核链表的实现</a><ul><li><a href=#链表结构体的实现>链表结构体的实现</a></li><li><a href=#初始化链表的实现>初始化链表的实现</a></li><li><a href=#相关判断的实现>相关判断的实现</a></li><li><a href=#添加结点的实现>添加结点的实现</a></li><li><a href=#删除结点的实现>删除结点的实现</a></li><li><a href=#移动结点的实现>移动结点的实现</a></li><li><a href=#拆分链表的实现>拆分链表的实现</a></li><li><a href=#合并链表的实现>合并链表的实现</a></li><li><a href=#获取包含结点的数据结构>获取包含结点的数据结构</a></li><li><a href=#遍历链表的实现>遍历链表的实现</a><ul><li><a href=#基本方法的实现>基本方法的实现</a></li><li><a href=#常用方法的实现>常用方法的实现</a></li><li><a href=#反向遍历的实现>反向遍历的实现</a></li><li><a href=#遍历时删除的实现>遍历时删除的实现</a></li></ul></li></ul></li></ul></nav></div></div></section></div><footer id=footer class="container-fluid text-center align-content-center footer pb-2"><div class="container pt-5"><div class="row text-start"><div class="col-md-4 col-sm-12"><h5>导航</h5><ul><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#about>关于</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#skills>技能</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#experiences>工作经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#education>教育经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#projects>参与项目</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#recent-posts>最近博文</a></li><li class=nav-item><a class=smooth-scroll href=/tags/>标签</a></li><li class=nav-item><a class=smooth-scroll href=/categories/>类别</a></li></ul></div><div class="col-md-4 col-sm-12"><h5>联系方式:</h5><ul><li><a href=mailto:chris.chenfeiyang@gmail.com target=_blank rel=noopener><span><i class="fas fa-envelope"></i></span> <span>chris.chenfeiyang@gmail.com</span></a></li><li><a href=https://github.com/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-github"></i></span> <span>FreeFlyingSheep</span></a></li><li><a href=https://www.linkedin.com/in/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-linkedin"></i></span> <span>FreeFlyingSheep</span></a></li></ul></div></div></div><hr><div class=container><p id=disclaimer><strong>免责声明:</strong> 本主题使用 MIT 许可证。本博客使用署名—非商业性使用 4.0 协议国际版（CC BY-NC 4.0）许可证。</p></div><hr><div class=container><div class="row text-start"><div class=col-md-4><a id=theme href=https://github.com/hugo-toha/toha target=_blank rel=noopener><img src=/images/theme-logo_hu_be7279b2506ad3f1.png alt="Toha Theme Logo">
+Toha</a></div><div class="col-md-4 text-center">© 2023 版权所有。</div><div class="col-md-4 text-end"><a id=hugo href=https://gohugo.io/ target=_blank rel=noopener>Powered by
+<img src=/images/hugo-logo.svg alt="Hugo Logo" height=18></a></div></div></div></footer><script src=/application.526b71351c36e243e2d7f272cedce3393c291461a3b0a49f877f3a3b4995291d.js integrity="sha256-UmtxNRw24kPi1/JyztzjOTwpFGGjsKSfh386O0mVKR0=" defer></script></body></html>

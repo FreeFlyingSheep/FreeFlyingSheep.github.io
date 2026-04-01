@@ -1,0 +1,556 @@
+<!doctype html><html lang=zh-cn><head><title>内核基数树</title><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=X-UA-Compatible content="ie=edge"><link rel=canonical href=https://FreeFlyingSheep.github.io/posts/kernel/data-structure/radix-tree/><link rel=stylesheet href=/application.12d69a55a3afe94646716f1bcc2804b35a0b575ba94febbb0ec6e47bd0bef25f.css integrity="sha256-EtaaVaOv6UZGcW8bzCgEs1oLV1upT+u7Dsbke9C+8l8="><link rel=icon type=image/png href=/images/site/favicon_hu_bf1264eea1001669.png><meta property="og:title" content="内核基数树"><meta property="og:type" content="website"><meta property="og:description" content="FreeFlyingSheep 的个人博客。"><meta property="og:image" content="https://FreeFlyingSheep.github.io/images/author/octocat.png"><meta property="og:url" content="https://FreeFlyingSheep.github.io/posts/kernel/data-structure/radix-tree/"><meta name=twitter:card content="summary"><meta name=twitter:title content="内核基数树"><meta name=twitter:description content="Linux 内核学习笔记系列，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核基数树。"><meta name=description content="内核基数树"><script async src="https://www.googletagmanager.com/gtag/js?id=G-FF4B2FQP4C"></script><script>var doNotTrack=!1;if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FF4B2FQP4C")}</script><script integrity="sha256-DO4ugzEwhTW1Id1UIWn0gUJWaebCYOypeTit6LW4QB4=">let theme=localStorage.getItem("theme-scheme")||localStorage.getItem("darkmode:color-scheme")||"light";theme==="system"&&(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?theme="dark":theme="light"),document.documentElement.setAttribute("data-theme",theme)</script></head><body class="type-posts kind-page" data-bs-spy=scroll data-bs-target=#TableOfContents data-bs-offset=80><div class="container-fluid bg-secondary wrapper"><nav class="navbar navbar-expand-xl top-navbar shadow" id=top-navbar><div class=container><button class="navbar-toggler navbar-light" id=sidebar-toggler type=button>
+<i data-feather=sidebar></i>
+</button>
+<a class=navbar-brand href=/><img src=/images/site/logo_hu_bf1264eea1001669.png id=logo alt=Logo>
+FreeFlyingSheep 的博客</a>
+<button class="navbar-toggler navbar-light" id=navbar-toggler type=button data-bs-toggle=collapse data-bs-target=#top-nav-items aria-label=menu>
+<i data-feather=menu></i></button><div class="collapse navbar-collapse dynamic-navbar" id=top-nav-items><ul class="nav navbar-nav ms-auto"><li class=nav-item><a class=nav-link href=/#home>主页</a></li><li class=nav-item><a class=nav-link href=/#about>关于</a></li><li class=nav-item><a class=nav-link href=/#skills>技能</a></li><li class=nav-item><a class=nav-link href=/#experiences>工作经历</a></li><li class=nav-item><a class=nav-link href=/#education>教育经历</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=navbarDropdown role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false>更多的</a><div class=dropdown-menu aria-labelledby=navbarDropdown><a class=dropdown-item href=/#projects>参与项目</a>
+<a class=dropdown-item href=/#recent-posts>最近博文</a></div></li><div id=top-navbar-divider></div><li class=nav-item><a class=nav-link id=blog-link href=/posts>博文</a></li><li class=nav-item><a class=nav-link id=note-link href=/notes>笔记</a></li><li class=nav-item><a class=nav-link href=/tags/>标签</a></li><li class=nav-item><a class=nav-link href=/categories/>类别</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=themeSelector role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false><img id=navbar-theme-icon-svg class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme"></a><div id=themeMenu class="dropdown-menu dropdown-menu-icons-only" aria-labelledby=themeSelector><a class="dropdown-item nav-link" href=# data-scheme=light><img class=theme-icon src=/icons/sun-svgrepo-com.svg width=20 alt="Light Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=dark><img class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=system><img class=theme-icon src=/icons/computer-svgrepo-com.svg width=20 alt="System Theme"></a></div></li></ul></div></div><img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=main-logo alt=Logo>
+<img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=inverted-logo alt="Inverted Logo"></nav><section class=sidebar-section id=sidebar-section><div class=sidebar-holder><div class=sidebar id=sidebar><form class=mx-auto method=get action=/%20search><input type=text name=keyword placeholder data-search id=search-box></form><div class=sidebar-tree><ul class=tree id=tree><li id=list-heading><a href=/%20/posts/ data-filter=all>博文</a></li><div class=subtree><li><a class=list-link href=/posts/introduction/ title=引言>引言</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/> AI</a><ul><li><a class=list-link href=/posts/ai/ai/ title="AI 学习笔记">AI 学习笔记</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/nlp/> NLP</a><ul><li><a class=list-link href=/posts/ai/nlp/basic/ title="NLP 基础概念">NLP 基础概念</a></li><li><a class=list-link href=/posts/ai/nlp/core/ title="NLP 系统">NLP 系统</a></li><li><a class=list-link href=/posts/ai/nlp/supplement/ title="NLP 补充内容">NLP 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/llm/> LLM</a><ul><li><a class=list-link href=/posts/ai/llm/basic/ title="LLM 基本概念">LLM 基本概念</a></li><li><a class=list-link href=/posts/ai/llm/usage/ title="LLM 的使用">LLM 的使用</a></li><li><a class=list-link href=/posts/ai/llm/supplement/ title="LLM 补充内容">LLM 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/agent/> Agent</a><ul><li><a class=list-link href=/posts/ai/agent/basic/ title="Agent 基本概念">Agent 基本概念</a></li><li><a class=list-link href=/posts/ai/agent/mcp/ title="MCP 相关概念">MCP 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/rag/ title="RAG 相关概念">RAG 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/demo/ title="股票分析 Demo">股票分析 Demo</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/git/> Git</a><ul><li><a class=list-link href=/posts/git/command/ title="Git 常用命令">Git 常用命令</a></li><li><a class=list-link href=/posts/git/patch/ title="Git 打补丁">Git 打补丁</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/linux/> Linux</a><ul><li><a class=list-link href=/posts/linux/arch/ title="安装 Arch Linux">安装 Arch Linux</a></li><li><a class=list-link href=/posts/linux/wsl/ title="安装 WSL">安装 WSL</a></li><li><a class=list-link href=/posts/linux/lfs/ title="构建 LFS 系统">构建 LFS 系统</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/loongarch/> LoongArch</a><ul><li><a class=list-link href=/posts/loongarch/assembly/ title="LoongArch 汇编">LoongArch 汇编</a></li><li><a class=list-link href=/posts/loongarch/develop/ title="在 LoongArch 上开发">在 LoongArch 上开发</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/mips/> MIPS</a><ul><li><a class=list-link href=/posts/mips/see-mips-run/ title="MIPS 体系结构">MIPS 体系结构</a></li><li><a class=list-link href=/posts/mips/assembly/ title="MIPS 汇编">MIPS 汇编</a></li><li><a class=list-link href=/posts/mips/supplement/ title=MIPS（补充内容）>MIPS（补充内容）</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/openstack/> OpenStack</a><ul><li><a class=list-link href=/posts/openstack/introduction/ title="OpenStack 简介">OpenStack 简介</a></li><li><a class=list-link href=/posts/openstack/lemote/ title="在龙芯上移植 OpenStack">在龙芯上移植 OpenStack</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/rt-thread/> RT-Thread</a><ul><li><a class=list-link href=/posts/rt-thread/loongarch32/ title="移植 RT-Thread 到 LoongArch32">移植 RT-Thread 到 LoongArch32</a></li><li><a class=list-link href=/posts/rt-thread/loongarch64/ title="移植 RT-Thread 到 LoongArch64">移植 RT-Thread 到 LoongArch64</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/valgrind/> Valgrind</a><ul><li><a class=list-link href=/posts/valgrind/libvex/ title="libVEX 简介">libVEX 简介</a></li><li><a class=list-link href=/posts/valgrind/loongarch/ title="Valgrind for LoongArch">Valgrind for LoongArch</a></li><li><a class=list-link href=/posts/valgrind/valgrind/ title="Valgrind 简介">Valgrind 简介</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/> 内核</a><ul class=active><li><a class=list-link href=/posts/kernel/kernel/ title="Linux 内核学习笔记">Linux 内核学习笔记</a></li><li><a class=list-link href=/posts/kernel/todo/ title="TODO 列表">TODO 列表</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/memory/> 内存管理</a><ul><li><a class=list-link href=/posts/kernel/memory/bootmem/ title="bootmem 分配器">bootmem 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/per-cpu/ title="per-CPU 高速缓存">per-CPU 高速缓存</a></li><li><a class=list-link href=/posts/kernel/memory/slab/ title="slab 分配器">slab 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/buddy-system/ title=伙伴系统>伙伴系统</a></li><li><a class=list-link href=/posts/kernel/memory/address/ title=内存寻址>内存寻址</a></li><li><a class=list-link href=/posts/kernel/memory/map/ title=内存映射>内存映射</a></li><li><a class=list-link href=/posts/kernel/memory/model/ title=内存模型>内存模型</a></li><li><a class=list-link href=/posts/kernel/memory/initialization/ title=内存管理初始化>内存管理初始化</a></li><li><a class=list-link href=/posts/kernel/memory/supplement/ title=内存管理补充>内存管理补充</a></li><li><a class=list-link href=/posts/kernel/memory/continuous/ title=连续页框的管理>连续页框的管理</a></li><li><a class=list-link href=/posts/kernel/memory/uncontinuous/ title=非连续页框的管理>非连续页框的管理</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/develop/> 开发</a><ul><li><a class=list-link href=/posts/kernel/develop/arch/ title=体系结构相关知识>体系结构相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/develop/ title=内核开发相关知识>内核开发相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/build/ title=内核编译和调试>内核编译和调试</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/data-structure/> 数据结构</a><ul class=active><li><a class=list-link href=/posts/kernel/data-structure/expansion/ title="GCC 扩展语法">GCC 扩展语法</a></li><li><a class=list-link href=/posts/kernel/data-structure/bitmap/ title=内核位图>内核位图</a></li><li><a class="active list-link" href=/posts/kernel/data-structure/radix-tree/ title=内核基数树>内核基数树</a></li><li><a class=list-link href=/posts/kernel/data-structure/hlist/ title=内核散列表>内核散列表</a></li><li><a class=list-link href=/posts/kernel/data-structure/rbtree/ title=内核红黑树>内核红黑树</a></li><li><a class=list-link href=/posts/kernel/data-structure/list/ title=内核链表>内核链表</a></li><li><a class=list-link href=/posts/kernel/data-structure/kfifo/ title=内核队列>内核队列</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/miscellaneous/> 杂项</a><ul><li><a class=list-link href=/posts/kernel/miscellaneous/dynamic-debug/ title=动态调试>动态调试</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/macros-pitfalls/ title=宏的陷阱和使用技巧>宏的陷阱和使用技巧</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/predefined-macros/ title=预定义宏>预定义宏</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/introduction/> 简介</a><ul><li><a class=list-link href=/posts/kernel/introduction/basis/ title="Linux 内核基础">Linux 内核基础</a></li><li><a class=list-link href=/posts/kernel/introduction/common/ title="Linux 内核常见函数/宏">Linux 内核常见函数/宏</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/tips/> 技巧</a><ul><li><a class=list-link href=/posts/tips/github/ title="Github 模板">Github 模板</a></li><li><a class=list-link href=/posts/tips/generic-entry/ title="Linux 中断和系统调用通用框架">Linux 中断和系统调用通用框架</a></li><li><a class=list-link href=/posts/tips/mips-boot/ title="Linux/MIPS 启动">Linux/MIPS 启动</a></li><li><a class=list-link href=/posts/tips/shell-redirect/ title="shell 重定向小技巧">shell 重定向小技巧</a></li><li><a class=list-link href=/posts/tips/hugo/ title="使用 Hugo 搭建个人博客">使用 Hugo 搭建个人博客</a></li><li><a class=list-link href=/posts/tips/zsh/ title="使用 Zsh">使用 Zsh</a></li><li><a class=list-link href=/posts/tips/linux-version/ title="查看 Linux 版本">查看 Linux 版本</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/virtualization/> 虚拟化</a><ul><li><a class=list-link href=/posts/virtualization/kvm/ title="KVM 简介">KVM 简介</a></li><li><a class=list-link href=/posts/virtualization/qemu/ title="QEMU 简介">QEMU 简介</a></li></ul></li></div></ul></div></div></div></section><section class=content-section id=content-section><div class=content><div class="container p-0 read-area"><div class="hero-area col-sm-12" id=hero-area style=background-image:url(/images/default-hero_hu_1e630a6e35d8e16.jpg)></div><div class=page-content><div class="author-profile ms-auto align-self-lg-center"><img class=rounded-circle src=/images/author/octocat_hu_88b3a7924ca87a69.png alt="Author Image"><h5 class=author-name>FreeFlyingSheep</h5><p class=text-muted>Wednesday, April 28, 2021 |
+9 分钟</p></div><div class=title><h1>内核基数树</h1></div><div class=tags><ul style=padding-left:0><li><a href=/tags/linux-%E5%86%85%E6%A0%B8/ class="btn btn-sm btn-outline-info rounded">Linux 内核</a></li><li><a href=/tags/%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/ class="btn btn-sm btn-outline-info rounded">内核数据结构</a></li><li><a href=/tags/%E9%93%BE%E8%A1%A8/ class="btn btn-sm btn-outline-info rounded">链表</a></li></ul></div><div class=post-content id=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，GCC 扩展语法和内核数据结构部分，简单介绍 Linux 内核基数树。</p><h2 id=基数树简介>基数树简介</h2><h3 id=前缀树字典树>前缀树（字典树）</h3><p>该部分内容来源于<a href=https://zh.wikipedia.org/wiki/Trie target=_blank rel=noopener>维基百科</a>。</p><blockquote><p>在计算机科学中，trie，又称前缀树或字典树，是一种有序树，用于保存关联数组，其中的键通常是字符串。与二叉查找树不同，键不是直接保存在节点中，而是由节点在树中的位置决定。一个节点的所有子孙都有相同的前缀，也就是这个节点对应的字符串，而根节点对应空字符串。一般情况下，不是所有的节点都有对应的值，只有叶子节点和部分内部节点所对应的键才有相关的值。</p><p>在图示中，键标注在节点中，值标注在节点之下。每一个完整的英文单词对应一个特定的整数。Trie可以看作是一个确定有限状态自动机，尽管边上的符号一般是隐含在分支的顺序中的。</p><p>键不需要被显式地保存在节点中。图示中标注出完整的单词，只是为了演示trie的原理。</p><p>trie中的键通常是字符串，但也可以是其它的结构。trie的算法可以很容易地修改为处理其它结构的有序序列，比如一串数字或者形状的排列。比如，bitwise trie中的键是一串比特，可以用于表示整数或者内存地址。</p></blockquote><p><img src=/images/kernel/data-structure/trie.png alt=前缀树（字典树）></p><h3 id=基数树>基数树</h3><p>该部分内容来源于<a href=https://zh.wikipedia.org/wiki/%E5%9F%BA%E6%95%B0%E6%A0%91 target=_blank rel=noopener>维基百科</a>。</p><blockquote><p>在计算机科学中，基数树（也叫基数特里树或压缩前缀树）是一种数据结构，是一种更节省空间的Trie（前缀树），其中作为唯一子节点的每个节点都与其父节点合并，边既可以表示为元素序列又可以表示为单个元素。因此每个内部节点的子节点数最多为基数树的基数r ，其中r为正整数，x为2的幂，x≥1，这使得基数树更适用于对于较小的集合（尤其是字符串很长的情况下）和有很长相同前缀的字符串集合。</p></blockquote><p><img src=/images/kernel/data-structure/patricia_trie.png alt=基数树></p><blockquote><p>基数树支持插入、删除、查找操作。查找包括完全匹配、前缀匹配、前驱查找、后继查找。所有这些操作都是O(k)复杂度，其中k是所有字符串中最大的长度。</p></blockquote><h2 id=内核基数树的使用>内核基数树的使用</h2><p>内核红黑树的实现称为 <code>radix_tree</code>，头文件为 <code>include/linux/radix-tree.h</code>。下面只介绍几个基本的 API 和相关实现。</p><h3 id=基数树的创建>基数树的创建</h3><p>最简单的方式，直接使用宏创建：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#a6e22e>RADIX_TREE</span>(name, gfp_mask);
+</span></span></code></pre></div><p>或者，也可以手工创建：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>struct</span> radix_tree_root tree;
+</span></span><span style=display:flex><span><span style=color:#a6e22e>INIT_RADIX_TREE</span>(<span style=color:#f92672>&amp;</span>tree, gfp_mask);
+</span></span></code></pre></div><h3 id=基数树的查找>基数树的查找</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>radix_tree_lookup</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> index);
+</span></span></code></pre></div><p>该函数在以 <code>root</code> 为根的基数树中查找索引为 <code>index</code> 的内容，返回查找的内容的地址（没找到要查找的内容则返回 <code>NULL</code>）。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>radix_tree_gang_lookup</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root, <span style=color:#66d9ef>void</span> <span style=color:#f92672>**</span>results, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> first_index, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> max_items);
+</span></span></code></pre></div><p>该函数在以 <code>root</code> 为根的基数树中查找非空内容，从索引为 <code>first_index</code> 的结点开始，最多查找 <code>max_items</code> 个非空内容，查找结果放 <code>results</code> 中，返回找到的个数。</p><h3 id=基数树的插入>基数树的插入</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>int</span> <span style=color:#a6e22e>radix_tree_insert</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> index, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>item);
+</span></span></code></pre></div><p>该函数将内容 <code>item</code> 插入到以 <code>root</code> 为根的基数树中索引为 <code>index</code> 的地方，插入成功返回 <code>0</code>，失败返回错误值。</p><h3 id=基数树的删除>基数树的删除</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>radix_tree_delete</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> index);
+</span></span></code></pre></div><p>该函数将索引为 <code>index</code> 的内容从以 <code>root</code> 为根的基数树中删除，返回删除的内容的地址（要删除的内容不存在则返回 <code>NULL</code>）。</p><h2 id=内核基数树的的实现>内核基数树的的实现</h2><p>内核基数树的实现均位于 <code>lib/radix-tree.c</code> 和 <code>include/linux/radix-tree.h</code>。我只求会用 API，具体实现的原理要参考数据结构书籍，下面也只贴出部分核心代码。</p><h3 id=基数树的定义>基数树的定义</h3><p><img src=/images/kernel/data-structure/radix-tree.png alt=内核基数树示例></p><p>根的定义如下：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* root tags are stored in gfp_mask, shifted by __GFP_BITS_SHIFT */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> radix_tree_root {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span>            height;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>gfp_t</span>                   gfp_mask;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> radix_tree_node  <span style=color:#f92672>*</span>rnode;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>结点的定义如下：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#define RADIX_TREE_MAX_TAGS 2
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef __KERNEL__
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define RADIX_TREE_MAP_SHIFT (CONFIG_BASE_SMALL ? 4 : 6)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#define RADIX_TREE_MAP_SHIFT 3 </span><span style=color:#75715e>/* For more stressful testing */</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define RADIX_TREE_MAP_SIZE (1UL &lt;&lt; RADIX_TREE_MAP_SHIFT)
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define RADIX_TREE_TAG_LONGS \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>        ((RADIX_TREE_MAP_SIZE + BITS_PER_LONG - 1) / BITS_PER_LONG)
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> radix_tree_node {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span>            height; <span style=color:#75715e>/* Height from the bottom */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span>            count;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> rcu_head         rcu_head;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span>                    <span style=color:#f92672>*</span>slots[RADIX_TREE_MAP_SIZE];
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>           tags[RADIX_TREE_MAX_TAGS][RADIX_TREE_TAG_LONGS];
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>其中，<code>BITS_PER_LONG</code> 是体系结构相关的，指该体系结构下 <code>long</code> 占多少位，该宏在 32 位系统下通常是 <code>32</code>，64 位系统下通常是 <code>64</code>。</p><h3 id=基数树创建的实现>基数树创建的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#define RADIX_TREE_INIT(mask)   {           \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    .height = 0,                            \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    .gfp_mask = (mask),                     \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    .rnode = NULL,                          \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>}
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define RADIX_TREE(name, mask) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    struct radix_tree_root name = RADIX_TREE_INIT(mask)
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#define INIT_RADIX_TREE(root, mask)         \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>do {                                        \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    (root)-&gt;height = 0;                     \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    (root)-&gt;gfp_mask = (mask);              \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>    (root)-&gt;rnode = NULL;                   \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>} while (0)
+</span></span></span></code></pre></div><h3 id=辅助函数宏的实现>辅助函数/宏的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#define RADIX_TREE_INDIRECT_PTR 1
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>radix_tree_indirect_to_ptr</span>(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>ptr)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> (<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>)((<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)ptr <span style=color:#f92672>&amp;</span> <span style=color:#f92672>~</span>RADIX_TREE_INDIRECT_PTR);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>radix_tree_is_indirect_ptr</span>(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>ptr)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> (<span style=color:#66d9ef>int</span>)((<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)ptr <span style=color:#f92672>&amp;</span> RADIX_TREE_INDIRECT_PTR);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Return the maximum key which can be store into a
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  radix tree with height HEIGHT.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> <span style=color:#a6e22e>radix_tree_maxindex</span>(<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> height)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> height_to_maxindex[height];
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>对于前两个函数，由于地址总是对齐的，不管哪种体系结构，地址的最后一位总是 <code>0</code>。所以可以利用这一位，存储该结点是直接结点（指针直接指向内容）还是间接结点（指针指向其他树的结点）。</p><h3 id=基数树的查找的实现>基数树的查找的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#define RADIX_TREE_MAP_MASK (RADIX_TREE_MAP_SIZE-1)
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * is_slot == 1 : search for the slot.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * is_slot == 0 : search for the node.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>radix_tree_lookup_element</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root,
+</span></span><span style=display:flex><span>                                       <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> index, <span style=color:#66d9ef>int</span> is_slot)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> height, shift;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>node, <span style=color:#f92672>**</span>slot;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    node <span style=color:#f92672>=</span> <span style=color:#a6e22e>rcu_dereference_raw</span>(root<span style=color:#f92672>-&gt;</span>rnode);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (node <span style=color:#f92672>==</span> NULL)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>radix_tree_is_indirect_ptr</span>(node)) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (index <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> is_slot <span style=color:#f92672>?</span> (<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>)<span style=color:#f92672>&amp;</span>root<span style=color:#f92672>-&gt;</span>rnode : node;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    node <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_indirect_to_ptr</span>(node);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    height <span style=color:#f92672>=</span> node<span style=color:#f92672>-&gt;</span>height;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (index <span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>radix_tree_maxindex</span>(height))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    shift <span style=color:#f92672>=</span> (height<span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>) <span style=color:#f92672>*</span> RADIX_TREE_MAP_SHIFT;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>do</span> {
+</span></span><span style=display:flex><span>        slot <span style=color:#f92672>=</span> (<span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>**</span>)
+</span></span><span style=display:flex><span>            (node<span style=color:#f92672>-&gt;</span>slots <span style=color:#f92672>+</span> ((index<span style=color:#f92672>&gt;&gt;</span>shift) <span style=color:#f92672>&amp;</span> RADIX_TREE_MAP_MASK));
+</span></span><span style=display:flex><span>        node <span style=color:#f92672>=</span> <span style=color:#a6e22e>rcu_dereference_raw</span>(<span style=color:#f92672>*</span>slot);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (node <span style=color:#f92672>==</span> NULL)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        shift <span style=color:#f92672>-=</span> RADIX_TREE_MAP_SHIFT;
+</span></span><span style=display:flex><span>        height<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>while</span> (height <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> is_slot <span style=color:#f92672>?</span> (<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>)slot:node;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  radix_tree_lookup    -    perform lookup operation on a radix tree
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @root:          radix tree root
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @index:         index key
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Lookup the item at the position @index in the radix tree @root.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  This function can be called under rcu_read_lock, however the caller
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  must manage lifetimes of leaf nodes (eg. RCU may also be used to free
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  them safely). No RCU barriers are required to access or modify the
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  returned item, however.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>radix_tree_lookup</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> index)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>radix_tree_lookup_element</span>(root, index, <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(radix_tree_lookup);
+</span></span></code></pre></div><p><code>radix_tree_lookup()</code> 用于查找单个内容，RCU 相关的内容还没看，这里先无视（见 <a href=/posts/kernel/todo>TODO 列表</a>）。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>__lookup</span>(<span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>slot, <span style=color:#66d9ef>void</span> <span style=color:#f92672>***</span>results, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> index,
+</span></span><span style=display:flex><span>         <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> max_items, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> <span style=color:#f92672>*</span>next_index)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> nr_found <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> shift, height;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> i;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    height <span style=color:#f92672>=</span> slot<span style=color:#f92672>-&gt;</span>height;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (height <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>    shift <span style=color:#f92672>=</span> (height<span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>) <span style=color:#f92672>*</span> RADIX_TREE_MAP_SHIFT;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> ( ; height <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>1</span>; height<span style=color:#f92672>--</span>) {
+</span></span><span style=display:flex><span>        i <span style=color:#f92672>=</span> (index <span style=color:#f92672>&gt;&gt;</span> shift) <span style=color:#f92672>&amp;</span> RADIX_TREE_MAP_MASK;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> (;;) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (slot<span style=color:#f92672>-&gt;</span>slots[i] <span style=color:#f92672>!=</span> NULL)
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>            index <span style=color:#f92672>&amp;=</span> <span style=color:#f92672>~</span>((<span style=color:#ae81ff>1UL</span> <span style=color:#f92672>&lt;&lt;</span> shift) <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>);
+</span></span><span style=display:flex><span>            index <span style=color:#f92672>+=</span> <span style=color:#ae81ff>1UL</span> <span style=color:#f92672>&lt;&lt;</span> shift;
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (index <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>goto</span> out;   <span style=color:#75715e>/* 32-bit wraparound */</span>
+</span></span><span style=display:flex><span>            i<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (i <span style=color:#f92672>==</span> RADIX_TREE_MAP_SIZE)
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        shift <span style=color:#f92672>-=</span> RADIX_TREE_MAP_SHIFT;
+</span></span><span style=display:flex><span>        slot <span style=color:#f92672>=</span> <span style=color:#a6e22e>rcu_dereference_raw</span>(slot<span style=color:#f92672>-&gt;</span>slots[i]);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (slot <span style=color:#f92672>==</span> NULL)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Bottom level: grab some items */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> (i <span style=color:#f92672>=</span> index <span style=color:#f92672>&amp;</span> RADIX_TREE_MAP_MASK; i <span style=color:#f92672>&lt;</span> RADIX_TREE_MAP_SIZE; i<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>        index<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (slot<span style=color:#f92672>-&gt;</span>slots[i]) {
+</span></span><span style=display:flex><span>            results[nr_found<span style=color:#f92672>++</span>] <span style=color:#f92672>=</span> <span style=color:#f92672>&amp;</span>(slot<span style=color:#f92672>-&gt;</span>slots[i]);
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (nr_found <span style=color:#f92672>==</span> max_items)
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>out:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>*</span>next_index <span style=color:#f92672>=</span> index;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> nr_found;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  radix_tree_gang_lookup - perform multiple lookup on a radix tree
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @root:          radix tree root
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @results:       where the results of the lookup are placed
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @first_index:   start the lookup from this key
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @max_items:     place up to this many items at *results
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Performs an index-ascending scan of the tree for present items.  Places
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  them at *@results and returns the number of items which were placed at
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  *@results.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  The implementation is naive.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Like radix_tree_lookup, radix_tree_gang_lookup may be called under
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  rcu_read_lock. In this case, rather than the returned results being
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  an atomic snapshot of the tree at a single point in time, the semantics
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  of an RCU protected gang lookup are as though multiple radix_tree_lookups
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  have been issued in individual locks, and results stored in &#39;results&#39;.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>radix_tree_gang_lookup</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root, <span style=color:#66d9ef>void</span> <span style=color:#f92672>**</span>results,
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> first_index, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> max_items)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> max_index;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>node;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> cur_index <span style=color:#f92672>=</span> first_index;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> ret;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    node <span style=color:#f92672>=</span> <span style=color:#a6e22e>rcu_dereference_raw</span>(root<span style=color:#f92672>-&gt;</span>rnode);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>node)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>radix_tree_is_indirect_ptr</span>(node)) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (first_index <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>        results[<span style=color:#ae81ff>0</span>] <span style=color:#f92672>=</span> node;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    node <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_indirect_to_ptr</span>(node);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    max_index <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_maxindex</span>(node<span style=color:#f92672>-&gt;</span>height);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ret <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (ret <span style=color:#f92672>&lt;</span> max_items) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> nr_found, slots_found, i;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> next_index;   <span style=color:#75715e>/* Index of next search */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (cur_index <span style=color:#f92672>&gt;</span> max_index)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>        slots_found <span style=color:#f92672>=</span> <span style=color:#a6e22e>__lookup</span>(node, (<span style=color:#66d9ef>void</span> <span style=color:#f92672>***</span>)results <span style=color:#f92672>+</span> ret, cur_index,
+</span></span><span style=display:flex><span>                    max_items <span style=color:#f92672>-</span> ret, <span style=color:#f92672>&amp;</span>next_index);
+</span></span><span style=display:flex><span>        nr_found <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> (i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; i <span style=color:#f92672>&lt;</span> slots_found; i<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>slot;
+</span></span><span style=display:flex><span>            slot <span style=color:#f92672>=</span> <span style=color:#f92672>*</span>(((<span style=color:#66d9ef>void</span> <span style=color:#f92672>***</span>)results)[ret <span style=color:#f92672>+</span> i]);
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>slot)
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>continue</span>;
+</span></span><span style=display:flex><span>            results[ret <span style=color:#f92672>+</span> nr_found] <span style=color:#f92672>=</span> <span style=color:#a6e22e>rcu_dereference_raw</span>(slot);
+</span></span><span style=display:flex><span>            nr_found<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        ret <span style=color:#f92672>+=</span> nr_found;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (next_index <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span>)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>        cur_index <span style=color:#f92672>=</span> next_index;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> ret;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(radix_tree_gang_lookup);
+</span></span></code></pre></div><p><code>radix_tree_gang_lookup()</code> 用于查找多个内容。</p><p>其他查找函数都是同理，只是查找的东西，比如查找 slot 和 tag 等。</p><h3 id=基数树的插入的实现>基数树的插入的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>gfp_t</span> <span style=color:#a6e22e>root_gfp_mask</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> root<span style=color:#f92672>-&gt;</span>gfp_mask <span style=color:#f92672>&amp;</span> __GFP_BITS_MASK;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * This assumes that the caller has performed appropriate preallocation, and
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * that the caller has pinned this thread of control to the current CPU.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>radix_tree_node_alloc</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>ret <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>gfp_t</span> gfp_mask <span style=color:#f92672>=</span> <span style=color:#a6e22e>root_gfp_mask</span>(root);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>(gfp_mask <span style=color:#f92672>&amp;</span> __GFP_WAIT)) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>struct</span> radix_tree_preload <span style=color:#f92672>*</span>rtp;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * Provided the caller has preloaded here, we will always
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * succeed in getting a node here (and never reach
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * kmem_cache_alloc)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        rtp <span style=color:#f92672>=</span> <span style=color:#f92672>&amp;</span><span style=color:#a6e22e>__get_cpu_var</span>(radix_tree_preloads);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (rtp<span style=color:#f92672>-&gt;</span>nr) {
+</span></span><span style=display:flex><span>            ret <span style=color:#f92672>=</span> rtp<span style=color:#f92672>-&gt;</span>nodes[rtp<span style=color:#f92672>-&gt;</span>nr <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>];
+</span></span><span style=display:flex><span>            rtp<span style=color:#f92672>-&gt;</span>nodes[rtp<span style=color:#f92672>-&gt;</span>nr <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>] <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>            rtp<span style=color:#f92672>-&gt;</span>nr<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (ret <span style=color:#f92672>==</span> NULL)
+</span></span><span style=display:flex><span>        ret <span style=color:#f92672>=</span> <span style=color:#a6e22e>kmem_cache_alloc</span>(radix_tree_node_cachep, gfp_mask);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>radix_tree_is_indirect_ptr</span>(ret));
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> ret;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Extend a radix tree so it can store key @index.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>radix_tree_extend</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> index)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>node;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> height;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> tag;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Figure out what the height should be.  */</span>
+</span></span><span style=display:flex><span>    height <span style=color:#f92672>=</span> root<span style=color:#f92672>-&gt;</span>height <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (index <span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>radix_tree_maxindex</span>(height))
+</span></span><span style=display:flex><span>        height<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (root<span style=color:#f92672>-&gt;</span>rnode <span style=color:#f92672>==</span> NULL) {
+</span></span><span style=display:flex><span>        root<span style=color:#f92672>-&gt;</span>height <span style=color:#f92672>=</span> height;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>do</span> {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> newheight;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>(node <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_node_alloc</span>(root)))
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> <span style=color:#f92672>-</span>ENOMEM;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/* Increase the height.  */</span>
+</span></span><span style=display:flex><span>        node<span style=color:#f92672>-&gt;</span>slots[<span style=color:#ae81ff>0</span>] <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_indirect_to_ptr</span>(root<span style=color:#f92672>-&gt;</span>rnode);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/* Propagate the aggregated tag info into the new root */</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> (tag <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; tag <span style=color:#f92672>&lt;</span> RADIX_TREE_MAX_TAGS; tag<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>root_tag_get</span>(root, tag))
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>tag_set</span>(node, tag, <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        newheight <span style=color:#f92672>=</span> root<span style=color:#f92672>-&gt;</span>height<span style=color:#f92672>+</span><span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>        node<span style=color:#f92672>-&gt;</span>height <span style=color:#f92672>=</span> newheight;
+</span></span><span style=display:flex><span>        node<span style=color:#f92672>-&gt;</span>count <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>        node <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_ptr_to_indirect</span>(node);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>rcu_assign_pointer</span>(root<span style=color:#f92672>-&gt;</span>rnode, node);
+</span></span><span style=display:flex><span>        root<span style=color:#f92672>-&gt;</span>height <span style=color:#f92672>=</span> newheight;
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>while</span> (height <span style=color:#f92672>&gt;</span> root<span style=color:#f92672>-&gt;</span>height);
+</span></span><span style=display:flex><span>out:
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  radix_tree_insert    -    insert into a radix tree
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @root:          radix tree root
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @index:         index key
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @item:          item to insert
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * 
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Insert an item into the radix tree at position @index.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>int</span> <span style=color:#a6e22e>radix_tree_insert</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root,
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> index, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>item)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>node <span style=color:#f92672>=</span> NULL, <span style=color:#f92672>*</span>slot;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> height, shift;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> offset;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> error;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>radix_tree_is_indirect_ptr</span>(item));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Make sure the tree is high enough.  */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (index <span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>radix_tree_maxindex</span>(root<span style=color:#f92672>-&gt;</span>height)) {
+</span></span><span style=display:flex><span>        error <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_extend</span>(root, index);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (error)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> error;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    slot <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_indirect_to_ptr</span>(root<span style=color:#f92672>-&gt;</span>rnode);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    height <span style=color:#f92672>=</span> root<span style=color:#f92672>-&gt;</span>height;
+</span></span><span style=display:flex><span>    shift <span style=color:#f92672>=</span> (height<span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>) <span style=color:#f92672>*</span> RADIX_TREE_MAP_SHIFT;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    offset <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;         <span style=color:#75715e>/* uninitialised var warning */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (height <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (slot <span style=color:#f92672>==</span> NULL) {
+</span></span><span style=display:flex><span>            <span style=color:#75715e>/* Have to add a child node.  */</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>(slot <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_node_alloc</span>(root)))
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>return</span> <span style=color:#f92672>-</span>ENOMEM;
+</span></span><span style=display:flex><span>            slot<span style=color:#f92672>-&gt;</span>height <span style=color:#f92672>=</span> height;
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (node) {
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>rcu_assign_pointer</span>(node<span style=color:#f92672>-&gt;</span>slots[offset], slot);
+</span></span><span style=display:flex><span>                node<span style=color:#f92672>-&gt;</span>count<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>            } <span style=color:#66d9ef>else</span>
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>rcu_assign_pointer</span>(root<span style=color:#f92672>-&gt;</span>rnode,
+</span></span><span style=display:flex><span>                    <span style=color:#a6e22e>radix_tree_ptr_to_indirect</span>(slot));
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/* Go a level down */</span>
+</span></span><span style=display:flex><span>        offset <span style=color:#f92672>=</span> (index <span style=color:#f92672>&gt;&gt;</span> shift) <span style=color:#f92672>&amp;</span> RADIX_TREE_MAP_MASK;
+</span></span><span style=display:flex><span>        node <span style=color:#f92672>=</span> slot;
+</span></span><span style=display:flex><span>        slot <span style=color:#f92672>=</span> node<span style=color:#f92672>-&gt;</span>slots[offset];
+</span></span><span style=display:flex><span>        shift <span style=color:#f92672>-=</span> RADIX_TREE_MAP_SHIFT;
+</span></span><span style=display:flex><span>        height<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (slot <span style=color:#f92672>!=</span> NULL)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#f92672>-</span>EEXIST;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (node) {
+</span></span><span style=display:flex><span>        node<span style=color:#f92672>-&gt;</span>count<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>rcu_assign_pointer</span>(node<span style=color:#f92672>-&gt;</span>slots[offset], item);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>tag_get</span>(node, <span style=color:#ae81ff>0</span>, offset));
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>tag_get</span>(node, <span style=color:#ae81ff>1</span>, offset));
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>rcu_assign_pointer</span>(root<span style=color:#f92672>-&gt;</span>rnode, item);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>root_tag_get</span>(root, <span style=color:#ae81ff>0</span>));
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#a6e22e>root_tag_get</span>(root, <span style=color:#ae81ff>1</span>));
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(radix_tree_insert);
+</span></span></code></pre></div><h3 id=基数树的删除的实现>基数树的删除的实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  radix_tree_shrink    -    shrink height of a radix tree to minimal
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @root           radix tree root
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>radix_tree_shrink</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* try to shrink tree height */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (root<span style=color:#f92672>-&gt;</span>height <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>to_free <span style=color:#f92672>=</span> root<span style=color:#f92672>-&gt;</span>rnode;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>newptr;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(<span style=color:#f92672>!</span><span style=color:#a6e22e>radix_tree_is_indirect_ptr</span>(to_free));
+</span></span><span style=display:flex><span>        to_free <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_indirect_to_ptr</span>(to_free);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * The candidate node has more than one child, or its child
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * is not at the leftmost slot, we cannot shrink.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (to_free<span style=color:#f92672>-&gt;</span>count <span style=color:#f92672>!=</span> <span style=color:#ae81ff>1</span>)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>to_free<span style=color:#f92672>-&gt;</span>slots[<span style=color:#ae81ff>0</span>])
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>break</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * We don&#39;t need rcu_assign_pointer(), since we are simply
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * moving the node from one part of the tree to another. If
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * it was safe to dereference the old pointer to it
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * (to_free-&gt;slots[0]), it will be safe to dereference the new
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * one (root-&gt;rnode).
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        newptr <span style=color:#f92672>=</span> to_free<span style=color:#f92672>-&gt;</span>slots[<span style=color:#ae81ff>0</span>];
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (root<span style=color:#f92672>-&gt;</span>height <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>1</span>)
+</span></span><span style=display:flex><span>            newptr <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_ptr_to_indirect</span>(newptr);
+</span></span><span style=display:flex><span>        root<span style=color:#f92672>-&gt;</span>rnode <span style=color:#f92672>=</span> newptr;
+</span></span><span style=display:flex><span>        root<span style=color:#f92672>-&gt;</span>height<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>radix_tree_node_free</span>(to_free);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>radix_tree_node_free</span>(<span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>node)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>call_rcu</span>(<span style=color:#f92672>&amp;</span>node<span style=color:#f92672>-&gt;</span>rcu_head, radix_tree_node_rcu_free);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  radix_tree_delete    -    delete an item from a radix tree
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @root:          radix tree root
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  @index:         index key
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Remove the item at @index from the radix tree rooted at @root.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *  Returns the address of the deleted item, or NULL if it was not present.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>radix_tree_delete</span>(<span style=color:#66d9ef>struct</span> radix_tree_root <span style=color:#f92672>*</span>root, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> index)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * The radix tree path needs to be one longer than the maximum path
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * since the &#34;list&#34; is null terminated.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> radix_tree_path path[RADIX_TREE_MAX_PATH <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span>], <span style=color:#f92672>*</span>pathp <span style=color:#f92672>=</span> path;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>slot <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> radix_tree_node <span style=color:#f92672>*</span>to_free;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> height, shift;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> tag;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> offset;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    height <span style=color:#f92672>=</span> root<span style=color:#f92672>-&gt;</span>height;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (index <span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>radix_tree_maxindex</span>(height))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    slot <span style=color:#f92672>=</span> root<span style=color:#f92672>-&gt;</span>rnode;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (height <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>root_tag_clear_all</span>(root);
+</span></span><span style=display:flex><span>        root<span style=color:#f92672>-&gt;</span>rnode <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    slot <span style=color:#f92672>=</span> <span style=color:#a6e22e>radix_tree_indirect_to_ptr</span>(slot);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    shift <span style=color:#f92672>=</span> (height <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>) <span style=color:#f92672>*</span> RADIX_TREE_MAP_SHIFT;
+</span></span><span style=display:flex><span>    pathp<span style=color:#f92672>-&gt;</span>node <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>do</span> {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (slot <span style=color:#f92672>==</span> NULL)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        pathp<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>        offset <span style=color:#f92672>=</span> (index <span style=color:#f92672>&gt;&gt;</span> shift) <span style=color:#f92672>&amp;</span> RADIX_TREE_MAP_MASK;
+</span></span><span style=display:flex><span>        pathp<span style=color:#f92672>-&gt;</span>offset <span style=color:#f92672>=</span> offset;
+</span></span><span style=display:flex><span>        pathp<span style=color:#f92672>-&gt;</span>node <span style=color:#f92672>=</span> slot;
+</span></span><span style=display:flex><span>        slot <span style=color:#f92672>=</span> slot<span style=color:#f92672>-&gt;</span>slots[offset];
+</span></span><span style=display:flex><span>        shift <span style=color:#f92672>-=</span> RADIX_TREE_MAP_SHIFT;
+</span></span><span style=display:flex><span>        height<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>while</span> (height <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (slot <span style=color:#f92672>==</span> NULL)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * Clear all tags associated with the just-deleted item
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> (tag <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; tag <span style=color:#f92672>&lt;</span> RADIX_TREE_MAX_TAGS; tag<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>tag_get</span>(pathp<span style=color:#f92672>-&gt;</span>node, tag, pathp<span style=color:#f92672>-&gt;</span>offset))
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>radix_tree_tag_clear</span>(root, index, tag);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    to_free <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Now free the nodes we do not need anymore */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (pathp<span style=color:#f92672>-&gt;</span>node) {
+</span></span><span style=display:flex><span>        pathp<span style=color:#f92672>-&gt;</span>node<span style=color:#f92672>-&gt;</span>slots[pathp<span style=color:#f92672>-&gt;</span>offset] <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>        pathp<span style=color:#f92672>-&gt;</span>node<span style=color:#f92672>-&gt;</span>count<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * Queue the node for deferred freeing after the
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * last reference to it disappears (set NULL, above).
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (to_free)
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>radix_tree_node_free</span>(to_free);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (pathp<span style=color:#f92672>-&gt;</span>node<span style=color:#f92672>-&gt;</span>count) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> (pathp<span style=color:#f92672>-&gt;</span>node <span style=color:#f92672>==</span>
+</span></span><span style=display:flex><span>                    <span style=color:#a6e22e>radix_tree_indirect_to_ptr</span>(root<span style=color:#f92672>-&gt;</span>rnode))
+</span></span><span style=display:flex><span>                <span style=color:#a6e22e>radix_tree_shrink</span>(root);
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>goto</span> out;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/* Node with zero slots in use so free it */</span>
+</span></span><span style=display:flex><span>        to_free <span style=color:#f92672>=</span> pathp<span style=color:#f92672>-&gt;</span>node;
+</span></span><span style=display:flex><span>        pathp<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>root_tag_clear_all</span>(root);
+</span></span><span style=display:flex><span>    root<span style=color:#f92672>-&gt;</span>height <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    root<span style=color:#f92672>-&gt;</span>rnode <span style=color:#f92672>=</span> NULL;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (to_free)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>radix_tree_node_free</span>(to_free);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>out:
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> slot;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(radix_tree_delete);
+</span></span></code></pre></div></div><div class="row ps-3 pe-3"><div class="col-md-6 share-buttons"><strong>分享:</strong>
+<a class="btn icon-button bg-facebook" href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fradix-tree%2f" target=_blank><i class="fab fa-facebook"></i>
+</a><a class="btn icon-button bg-twitter" href="https://twitter.com/share?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fradix-tree%2f&text=%e5%86%85%e6%a0%b8%e5%9f%ba%e6%95%b0%e6%a0%91&via=FreeFlyingSheep%20%e7%9a%84%e5%8d%9a%e5%ae%a2" target=_blank><i class="fab fa-twitter"></i>
+</a><a class="btn icon-button bg-reddit" href="https://reddit.com/submit?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fradix-tree%2f&title=%e5%86%85%e6%a0%b8%e5%9f%ba%e6%95%b0%e6%a0%91" target=_blank><i class="fab fa-reddit"></i>
+</a><a class="btn icon-button bg-linkedin" href="https://www.linkedin.com/shareArticle?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fradix-tree%2f&title=%e5%86%85%e6%a0%b8%e5%9f%ba%e6%95%b0%e6%a0%91" target=_blank><i class="fab fa-linkedin"></i>
+</a><a class="btn icon-button bg-whatsapp" href="https://api.whatsapp.com/send?text=%e5%86%85%e6%a0%b8%e5%9f%ba%e6%95%b0%e6%a0%91 https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fradix-tree%2f" target=_blank><i class="fab fa-whatsapp"></i>
+</a><a class="btn icon-button" href="mailto:?subject=%e5%86%85%e6%a0%b8%e5%9f%ba%e6%95%b0%e6%a0%91&body=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fdata-structure%2fradix-tree%2f" target=_blank><i class="fas fa-envelope-open-text"></i></a></div><div class="col-md-6 btn-improve-page"><a href=https://github.com/FreeFlyingSheep/FreeFlyingSheep.github.io/edit//content/posts/kernel/data-structure/radix-tree.md title target=_blank rel=noopener><i class="fas fa-code-branch"></i>
+改善此页面</a></div></div><hr><div class="row next-prev-navigator"><div class="col-md-6 previous-article"><a href=/posts/kernel/data-structure/bitmap/ title=内核位图 class="btn filled-button"><div><i class="fas fa-chevron-circle-left"></i> 上一篇</div><div class=next-prev-text>内核位图</div></a></div><div class="col-md-6 next-article"><a href=/posts/kernel/data-structure/hlist/ title=内核散列表 class="btn filled-button"><div>下一篇 <i class="fas fa-chevron-circle-right"></i></div><div class=next-prev-text>内核散列表</div></a></div></div><hr><script src=https://giscus.app/client.js data-repo=FreeFlyingSheep/FreeFlyingSheep.github.io data-repo-id=R_kgDORf53Rg data-category=Comments data-category-id=DIC_kwDORf53Rs4C325X data-mapping=url data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang crossorigin=anonymous async></script></div></div></div><a id=scroll-to-top class=btn type=button data-bs-toggle=tooltip data-bs-placement=left title="Scroll to top"><i class="fas fa-chevron-circle-up"></i></a></section><section class=toc-section id=toc-section><div class=toc-holder><h5 class="text-center ps-3">目录</h5><hr><div class=toc><nav id=TableOfContents><ul><li><a href=#基数树简介>基数树简介</a><ul><li><a href=#前缀树字典树>前缀树（字典树）</a></li><li><a href=#基数树>基数树</a></li></ul></li><li><a href=#内核基数树的使用>内核基数树的使用</a><ul><li><a href=#基数树的创建>基数树的创建</a></li><li><a href=#基数树的查找>基数树的查找</a></li><li><a href=#基数树的插入>基数树的插入</a></li><li><a href=#基数树的删除>基数树的删除</a></li></ul></li><li><a href=#内核基数树的的实现>内核基数树的的实现</a><ul><li><a href=#基数树的定义>基数树的定义</a></li><li><a href=#基数树创建的实现>基数树创建的实现</a></li><li><a href=#辅助函数宏的实现>辅助函数/宏的实现</a></li><li><a href=#基数树的查找的实现>基数树的查找的实现</a></li><li><a href=#基数树的插入的实现>基数树的插入的实现</a></li><li><a href=#基数树的删除的实现>基数树的删除的实现</a></li></ul></li></ul></nav></div></div></section></div><footer id=footer class="container-fluid text-center align-content-center footer pb-2"><div class="container pt-5"><div class="row text-start"><div class="col-md-4 col-sm-12"><h5>导航</h5><ul><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#about>关于</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#skills>技能</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#experiences>工作经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#education>教育经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#projects>参与项目</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#recent-posts>最近博文</a></li><li class=nav-item><a class=smooth-scroll href=/tags/>标签</a></li><li class=nav-item><a class=smooth-scroll href=/categories/>类别</a></li></ul></div><div class="col-md-4 col-sm-12"><h5>联系方式:</h5><ul><li><a href=mailto:chris.chenfeiyang@gmail.com target=_blank rel=noopener><span><i class="fas fa-envelope"></i></span> <span>chris.chenfeiyang@gmail.com</span></a></li><li><a href=https://github.com/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-github"></i></span> <span>FreeFlyingSheep</span></a></li><li><a href=https://www.linkedin.com/in/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-linkedin"></i></span> <span>FreeFlyingSheep</span></a></li></ul></div></div></div><hr><div class=container><p id=disclaimer><strong>免责声明:</strong> 本主题使用 MIT 许可证。本博客使用署名—非商业性使用 4.0 协议国际版（CC BY-NC 4.0）许可证。</p></div><hr><div class=container><div class="row text-start"><div class=col-md-4><a id=theme href=https://github.com/hugo-toha/toha target=_blank rel=noopener><img src=/images/theme-logo_hu_be7279b2506ad3f1.png alt="Toha Theme Logo">
+Toha</a></div><div class="col-md-4 text-center">© 2023 版权所有。</div><div class="col-md-4 text-end"><a id=hugo href=https://gohugo.io/ target=_blank rel=noopener>Powered by
+<img src=/images/hugo-logo.svg alt="Hugo Logo" height=18></a></div></div></div></footer><script src=/application.526b71351c36e243e2d7f272cedce3393c291461a3b0a49f877f3a3b4995291d.js integrity="sha256-UmtxNRw24kPi1/JyztzjOTwpFGGjsKSfh386O0mVKR0=" defer></script></body></html>

@@ -1,0 +1,516 @@
+<!doctype html><html lang=zh-cn><head><title>slab 分配器</title><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><meta http-equiv=X-UA-Compatible content="ie=edge"><link rel=canonical href=https://FreeFlyingSheep.github.io/posts/kernel/memory/slab/><link rel=stylesheet href=/application.12d69a55a3afe94646716f1bcc2804b35a0b575ba94febbb0ec6e47bd0bef25f.css integrity="sha256-EtaaVaOv6UZGcW8bzCgEs1oLV1upT+u7Dsbke9C+8l8="><link rel=icon type=image/png href=/images/site/favicon_hu_bf1264eea1001669.png><meta property="og:title" content="slab 分配器"><meta property="og:type" content="website"><meta property="og:description" content="FreeFlyingSheep 的个人博客。"><meta property="og:image" content="https://FreeFlyingSheep.github.io/images/author/octocat.png"><meta property="og:url" content="https://FreeFlyingSheep.github.io/posts/kernel/memory/slab/"><meta name=twitter:card content="summary"><meta name=twitter:title content="slab 分配器"><meta name=twitter:description content="Linux 内核学习笔记系列，内存管理部分，简单介绍 slab 分配器。"><meta name=description content="slab 分配器"><script async src="https://www.googletagmanager.com/gtag/js?id=G-FF4B2FQP4C"></script><script>var doNotTrack=!1;if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-FF4B2FQP4C")}</script><script integrity="sha256-DO4ugzEwhTW1Id1UIWn0gUJWaebCYOypeTit6LW4QB4=">let theme=localStorage.getItem("theme-scheme")||localStorage.getItem("darkmode:color-scheme")||"light";theme==="system"&&(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?theme="dark":theme="light"),document.documentElement.setAttribute("data-theme",theme)</script></head><body class="type-posts kind-page" data-bs-spy=scroll data-bs-target=#TableOfContents data-bs-offset=80><div class="container-fluid bg-secondary wrapper"><nav class="navbar navbar-expand-xl top-navbar shadow" id=top-navbar><div class=container><button class="navbar-toggler navbar-light" id=sidebar-toggler type=button>
+<i data-feather=sidebar></i>
+</button>
+<a class=navbar-brand href=/><img src=/images/site/logo_hu_bf1264eea1001669.png id=logo alt=Logo>
+FreeFlyingSheep 的博客</a>
+<button class="navbar-toggler navbar-light" id=navbar-toggler type=button data-bs-toggle=collapse data-bs-target=#top-nav-items aria-label=menu>
+<i data-feather=menu></i></button><div class="collapse navbar-collapse dynamic-navbar" id=top-nav-items><ul class="nav navbar-nav ms-auto"><li class=nav-item><a class=nav-link href=/#home>主页</a></li><li class=nav-item><a class=nav-link href=/#about>关于</a></li><li class=nav-item><a class=nav-link href=/#skills>技能</a></li><li class=nav-item><a class=nav-link href=/#experiences>工作经历</a></li><li class=nav-item><a class=nav-link href=/#education>教育经历</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=navbarDropdown role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false>更多的</a><div class=dropdown-menu aria-labelledby=navbarDropdown><a class=dropdown-item href=/#projects>参与项目</a>
+<a class=dropdown-item href=/#recent-posts>最近博文</a></div></li><div id=top-navbar-divider></div><li class=nav-item><a class=nav-link id=blog-link href=/posts>博文</a></li><li class=nav-item><a class=nav-link id=note-link href=/notes>笔记</a></li><li class=nav-item><a class=nav-link href=/tags/>标签</a></li><li class=nav-item><a class=nav-link href=/categories/>类别</a></li><li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href=# id=themeSelector role=button data-bs-toggle=dropdown aria-haspopup=true aria-expanded=false><img id=navbar-theme-icon-svg class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme"></a><div id=themeMenu class="dropdown-menu dropdown-menu-icons-only" aria-labelledby=themeSelector><a class="dropdown-item nav-link" href=# data-scheme=light><img class=theme-icon src=/icons/sun-svgrepo-com.svg width=20 alt="Light Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=dark><img class=theme-icon src=/icons/moon-svgrepo-com.svg width=20 alt="Dark Theme">
+</a><a class="dropdown-item nav-link" href=# data-scheme=system><img class=theme-icon src=/icons/computer-svgrepo-com.svg width=20 alt="System Theme"></a></div></li></ul></div></div><img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=main-logo alt=Logo>
+<img src=/images/site/logo_hu_bf1264eea1001669.png class=d-none id=inverted-logo alt="Inverted Logo"></nav><section class=sidebar-section id=sidebar-section><div class=sidebar-holder><div class=sidebar id=sidebar><form class=mx-auto method=get action=/%20search><input type=text name=keyword placeholder data-search id=search-box></form><div class=sidebar-tree><ul class=tree id=tree><li id=list-heading><a href=/%20/posts/ data-filter=all>博文</a></li><div class=subtree><li><a class=list-link href=/posts/introduction/ title=引言>引言</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/> AI</a><ul><li><a class=list-link href=/posts/ai/ai/ title="AI 学习笔记">AI 学习笔记</a></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/nlp/> NLP</a><ul><li><a class=list-link href=/posts/ai/nlp/basic/ title="NLP 基础概念">NLP 基础概念</a></li><li><a class=list-link href=/posts/ai/nlp/core/ title="NLP 系统">NLP 系统</a></li><li><a class=list-link href=/posts/ai/nlp/supplement/ title="NLP 补充内容">NLP 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/llm/> LLM</a><ul><li><a class=list-link href=/posts/ai/llm/basic/ title="LLM 基本概念">LLM 基本概念</a></li><li><a class=list-link href=/posts/ai/llm/usage/ title="LLM 的使用">LLM 的使用</a></li><li><a class=list-link href=/posts/ai/llm/supplement/ title="LLM 补充内容">LLM 补充内容</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/ai/agent/> Agent</a><ul><li><a class=list-link href=/posts/ai/agent/basic/ title="Agent 基本概念">Agent 基本概念</a></li><li><a class=list-link href=/posts/ai/agent/mcp/ title="MCP 相关概念">MCP 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/rag/ title="RAG 相关概念">RAG 相关概念</a></li><li><a class=list-link href=/posts/ai/agent/demo/ title="股票分析 Demo">股票分析 Demo</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/git/> Git</a><ul><li><a class=list-link href=/posts/git/command/ title="Git 常用命令">Git 常用命令</a></li><li><a class=list-link href=/posts/git/patch/ title="Git 打补丁">Git 打补丁</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/linux/> Linux</a><ul><li><a class=list-link href=/posts/linux/arch/ title="安装 Arch Linux">安装 Arch Linux</a></li><li><a class=list-link href=/posts/linux/wsl/ title="安装 WSL">安装 WSL</a></li><li><a class=list-link href=/posts/linux/lfs/ title="构建 LFS 系统">构建 LFS 系统</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/loongarch/> LoongArch</a><ul><li><a class=list-link href=/posts/loongarch/assembly/ title="LoongArch 汇编">LoongArch 汇编</a></li><li><a class=list-link href=/posts/loongarch/develop/ title="在 LoongArch 上开发">在 LoongArch 上开发</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/mips/> MIPS</a><ul><li><a class=list-link href=/posts/mips/see-mips-run/ title="MIPS 体系结构">MIPS 体系结构</a></li><li><a class=list-link href=/posts/mips/assembly/ title="MIPS 汇编">MIPS 汇编</a></li><li><a class=list-link href=/posts/mips/supplement/ title=MIPS（补充内容）>MIPS（补充内容）</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/openstack/> OpenStack</a><ul><li><a class=list-link href=/posts/openstack/introduction/ title="OpenStack 简介">OpenStack 简介</a></li><li><a class=list-link href=/posts/openstack/lemote/ title="在龙芯上移植 OpenStack">在龙芯上移植 OpenStack</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/rt-thread/> RT-Thread</a><ul><li><a class=list-link href=/posts/rt-thread/loongarch32/ title="移植 RT-Thread 到 LoongArch32">移植 RT-Thread 到 LoongArch32</a></li><li><a class=list-link href=/posts/rt-thread/loongarch64/ title="移植 RT-Thread 到 LoongArch64">移植 RT-Thread 到 LoongArch64</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/valgrind/> Valgrind</a><ul><li><a class=list-link href=/posts/valgrind/libvex/ title="libVEX 简介">libVEX 简介</a></li><li><a class=list-link href=/posts/valgrind/loongarch/ title="Valgrind for LoongArch">Valgrind for LoongArch</a></li><li><a class=list-link href=/posts/valgrind/valgrind/ title="Valgrind 简介">Valgrind 简介</a></li></ul></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/> 内核</a><ul class=active><li><a class=list-link href=/posts/kernel/kernel/ title="Linux 内核学习笔记">Linux 内核学习笔记</a></li><li><a class=list-link href=/posts/kernel/todo/ title="TODO 列表">TODO 列表</a></li><li><i data-feather=minus-circle></i><a class="active list-link" href=/posts/kernel/memory/> 内存管理</a><ul class=active><li><a class=list-link href=/posts/kernel/memory/bootmem/ title="bootmem 分配器">bootmem 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/per-cpu/ title="per-CPU 高速缓存">per-CPU 高速缓存</a></li><li><a class="active list-link" href=/posts/kernel/memory/slab/ title="slab 分配器">slab 分配器</a></li><li><a class=list-link href=/posts/kernel/memory/buddy-system/ title=伙伴系统>伙伴系统</a></li><li><a class=list-link href=/posts/kernel/memory/address/ title=内存寻址>内存寻址</a></li><li><a class=list-link href=/posts/kernel/memory/map/ title=内存映射>内存映射</a></li><li><a class=list-link href=/posts/kernel/memory/model/ title=内存模型>内存模型</a></li><li><a class=list-link href=/posts/kernel/memory/initialization/ title=内存管理初始化>内存管理初始化</a></li><li><a class=list-link href=/posts/kernel/memory/supplement/ title=内存管理补充>内存管理补充</a></li><li><a class=list-link href=/posts/kernel/memory/continuous/ title=连续页框的管理>连续页框的管理</a></li><li><a class=list-link href=/posts/kernel/memory/uncontinuous/ title=非连续页框的管理>非连续页框的管理</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/develop/> 开发</a><ul><li><a class=list-link href=/posts/kernel/develop/arch/ title=体系结构相关知识>体系结构相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/develop/ title=内核开发相关知识>内核开发相关知识</a></li><li><a class=list-link href=/posts/kernel/develop/build/ title=内核编译和调试>内核编译和调试</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/data-structure/> 数据结构</a><ul><li><a class=list-link href=/posts/kernel/data-structure/expansion/ title="GCC 扩展语法">GCC 扩展语法</a></li><li><a class=list-link href=/posts/kernel/data-structure/bitmap/ title=内核位图>内核位图</a></li><li><a class=list-link href=/posts/kernel/data-structure/radix-tree/ title=内核基数树>内核基数树</a></li><li><a class=list-link href=/posts/kernel/data-structure/hlist/ title=内核散列表>内核散列表</a></li><li><a class=list-link href=/posts/kernel/data-structure/rbtree/ title=内核红黑树>内核红黑树</a></li><li><a class=list-link href=/posts/kernel/data-structure/list/ title=内核链表>内核链表</a></li><li><a class=list-link href=/posts/kernel/data-structure/kfifo/ title=内核队列>内核队列</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/miscellaneous/> 杂项</a><ul><li><a class=list-link href=/posts/kernel/miscellaneous/dynamic-debug/ title=动态调试>动态调试</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/macros-pitfalls/ title=宏的陷阱和使用技巧>宏的陷阱和使用技巧</a></li><li><a class=list-link href=/posts/kernel/miscellaneous/predefined-macros/ title=预定义宏>预定义宏</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/kernel/introduction/> 简介</a><ul><li><a class=list-link href=/posts/kernel/introduction/basis/ title="Linux 内核基础">Linux 内核基础</a></li><li><a class=list-link href=/posts/kernel/introduction/common/ title="Linux 内核常见函数/宏">Linux 内核常见函数/宏</a></li></ul></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/tips/> 技巧</a><ul><li><a class=list-link href=/posts/tips/github/ title="Github 模板">Github 模板</a></li><li><a class=list-link href=/posts/tips/generic-entry/ title="Linux 中断和系统调用通用框架">Linux 中断和系统调用通用框架</a></li><li><a class=list-link href=/posts/tips/mips-boot/ title="Linux/MIPS 启动">Linux/MIPS 启动</a></li><li><a class=list-link href=/posts/tips/shell-redirect/ title="shell 重定向小技巧">shell 重定向小技巧</a></li><li><a class=list-link href=/posts/tips/hugo/ title="使用 Hugo 搭建个人博客">使用 Hugo 搭建个人博客</a></li><li><a class=list-link href=/posts/tips/zsh/ title="使用 Zsh">使用 Zsh</a></li><li><a class=list-link href=/posts/tips/linux-version/ title="查看 Linux 版本">查看 Linux 版本</a></li></ul></li><li><i data-feather=plus-circle></i><a class=list-link href=/posts/virtualization/> 虚拟化</a><ul><li><a class=list-link href=/posts/virtualization/kvm/ title="KVM 简介">KVM 简介</a></li><li><a class=list-link href=/posts/virtualization/qemu/ title="QEMU 简介">QEMU 简介</a></li></ul></li></div></ul></div></div></div></section><section class=content-section id=content-section><div class=content><div class="container p-0 read-area"><div class="hero-area col-sm-12" id=hero-area style=background-image:url(/images/default-hero_hu_1e630a6e35d8e16.jpg)></div><div class=page-content><div class="author-profile ms-auto align-self-lg-center"><img class=rounded-circle src=/images/author/octocat_hu_88b3a7924ca87a69.png alt="Author Image"><h5 class=author-name>FreeFlyingSheep</h5><p class=text-muted>Thursday, July 23, 2020 |
+9 分钟</p></div><div class=title><h1>slab 分配器</h1></div><div class=tags><ul style=padding-left:0><li><a href=/tags/linux-%E5%86%85%E6%A0%B8/ class="btn btn-sm btn-outline-info rounded">Linux 内核</a></li><li><a href=/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/ class="btn btn-sm btn-outline-info rounded">内存管理</a></li><li><a href=/tags/slab-%E5%88%86%E9%85%8D%E5%99%A8/ class="btn btn-sm btn-outline-info rounded">slab 分配器</a></li></ul></div><div class=post-content id=post-content><p><a href=/posts/kernel/kernel>Linux 内核学习笔记系列</a>，内存管理部分，简单介绍 slab 分配器。</p><h2 id=slab-分配器简介>slab 分配器简介</h2><p>slab 分配器是为了解决内碎片问题而设计的。</p><h3 id=slab-分配器算法的前提>slab 分配器算法的前提</h3><ul><li>所存放数据的类型可以影响内存区的分配方式。slab 分配器概念扩充了这种思想，并把内存区看作对象（object），这些对象由一组数据结构和几个叫构造和析构的函数（方法）组成。前者初始化内存区，后者回收内存区。</li><li>内核函数倾向于反复请求同一类型的内存区。</li><li>对内存区的请求可以根据它们发生的频率分类。</li><li>在引入的对象大小不是几何分布（数据结构的起始物理地址不是 2 的幂（的情况下，可以借助处理器的硬件高速缓存。</li><li>硬件高速缓存的高性能会限制对伙伴系统分配器的调用，因为对伙伴系统的每次调用都“弄脏”硬件高速缓存，所以增加了内存的平均访问时间。内核函数对硬件高速缓存的影响就是所谓的函数“足迹（footprint）”，其定义为函数结束时重写硬件高速缓存的百分比。大“足迹”的函数的执行使硬件高速缓存填满了无用信息，导致之后执行代码的速度变慢。</li></ul><h3 id=slab-分配器算法的设计思想>slab 分配器算法的设计思想</h3><ul><li>频繁使用的数据结构也会频繁分配和释放，因此应当缓存它们。</li><li>频繁分配和回收必然会导致内存碎片（难以找到大块连续的可用内存）。空闲链表的缓存应该连续存放，因为已经释放的数据结构又会放回空闲链表，所以不会导致碎片。</li><li>回收的对象可以立即投入下一次分配，因此对于频繁的分配和释放，空闲链表能提高性能。</li><li>如果分配器知道对象的大小、页大小和总硬件高速缓存大小，它能做出更明智的决策。</li><li>如果让部分缓存专属于某个处理器，那么分配和释放就可以在不加 SMP 锁的情况下进行。</li><li>如果分配器是与 NUMA 相关的，它就可以从相同的内存结点为请求者进行分配。</li><li>对存放的对象进行着色（color），以防多个对象映射到相同的硬件高速缓存行（cache line）。</li></ul><h2 id=slab-分配器的组成>slab 分配器的组成</h2><p>包含高速缓存（cache）的主内存区域被划分为多个 slab，每个 slab 由一个或多个连续的页框组成，这些页框既包含已分配的对象（object），也包含空闲的对象。</p><p><img src=/images/kernel/memory/slab.png alt="slab 分配器的组成"></p><h2 id=slab-分配器相关的描述符>slab 分配器相关的描述符</h2><h3 id=高速缓存描述符>高速缓存描述符</h3><p><code>include/linux/slab.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The slab lists of all objects.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Hopefully reduce the internal fragmentation
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * NUMA: The spinlock could be moved from the kmem_cache_t
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * into this structure, too. Figure out what causes
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * fewer cross-node spinlock operations.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> kmem_list3 {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head slabs_partial; <span style=color:#75715e>/* partial list first, better asm code */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head slabs_full;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head slabs_free;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> free_objects;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> free_touched;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> next_reap;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>shared;
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmem_cache_t
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * manages a cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> kmem_cache_s {
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 1) per-cpu data, touched during every alloc/free */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>array[NR_CPUS];
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> batchcount;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> limit;
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 2) touched by every alloc &amp; free from the backend */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> kmem_list3 lists;
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* NUMA: kmem_3list_t *nodelists[MAX_NUMNODES] */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> objsize;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> flags; <span style=color:#75715e>/* constant flags */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> num; <span style=color:#75715e>/* # of objs per slab */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> free_limit; <span style=color:#75715e>/* upper limit of objects in the lists */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>spinlock_t</span> spinlock;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 3) cache_grow/shrink */</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* order of pgs per slab (2^n) */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> gfporder;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* force GFP flags, e.g. GFP_DMA */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> gfpflags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>size_t</span> colour; <span style=color:#75715e>/* cache colouring range */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> colour_off; <span style=color:#75715e>/* colour offset */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> colour_next; <span style=color:#75715e>/* cache colouring */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>slabp_cache;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> slab_size;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> dflags; <span style=color:#75715e>/* dynamic flags */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* constructor func */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> (<span style=color:#f92672>*</span>ctor)(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>, <span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* de-constructor func */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> (<span style=color:#f92672>*</span>dtor)(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>, <span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>, <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 4) cache creation/removal */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>char</span> <span style=color:#f92672>*</span>name;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head next;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/* 5) statistics */</span>
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> kmem_cache_s <span style=color:#66d9ef>kmem_cache_t</span>;
+</span></span></code></pre></div><h3 id=slab-描述符>slab 描述符</h3><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * struct slab
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Manages the objs in a slab. Placed either at the beginning of mem allocated
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * for a slab, or allocated from an general cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Slabs are chained into three list: fully used, partial, fully free slabs.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> slab {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> list_head list;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> colouroff;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>s_mem; <span style=color:#75715e>/* including colour offset */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> inuse; <span style=color:#75715e>/* num of objs active in slab */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>kmem_bufctl_t</span> free;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h3 id=对象描述符>对象描述符</h3><p>每个对象都有一个类型为 <code>kmem_bufctl_t</code> 的描述符，该描述符定义于 <code>include/asm-xx/types.h</code> (<code>xx</code> 代表相应体系结构)，是一个无符号整型。</p><p>slab 的对象描述符也可以用两种方式存放：</p><ul><li>外部对象描述符：存放在 slab 外部，位于高速缓存描述符 <code>slabp_cache</code> 字段指向的一个普通高速缓存中，内存区大小取决于在 slab 中所存放的对象个数（高速缓存描述符的 <code>num</code> 字段）。</li><li>内部对象描述符：存放在 slab 内部，正好位于描述符所描述的对象之前。</li></ul><h3 id=各描述符之间的关系>各描述符之间的关系</h3><p>高速缓存描述符与 slab 描述符的关系如下：</p><p><img src=/images/kernel/memory/cache_slab.png alt="高速缓存描述符与 slab 描述符的关系"></p><p>slab 描述符与对象描述符的关系如下：</p><p><img src=/images/kernel/memory/slab_object.png alt="slab 描述符与对象描述符的关系"></p><h2 id=普通高速缓存和专用高速缓存>普通高速缓存和专用高速缓存</h2><p>高速缓存被分为普通和专用两种，普通高速缓存只由 slab 分配器用于自己的目的，而专用高速缓存由内核的其余部分使用。</p><h3 id=普通高速缓存>普通高速缓存</h3><p>第一个高速缓存叫 <code>kmem_cache</code>，包含在 <code>cache_cache</code> 中。</p><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* internal cache of cache description objs */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>kmem_cache_t</span> cache_cache <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span>    .lists <span style=color:#f92672>=</span> <span style=color:#a6e22e>LIST3_INIT</span>(cache_cache.lists),
+</span></span><span style=display:flex><span>    .batchcount <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>,
+</span></span><span style=display:flex><span>    .limit <span style=color:#f92672>=</span> BOOT_CPUCACHE_ENTRIES,
+</span></span><span style=display:flex><span>    .objsize <span style=color:#f92672>=</span> <span style=color:#66d9ef>sizeof</span>(<span style=color:#66d9ef>kmem_cache_t</span>),
+</span></span><span style=display:flex><span>    .flags <span style=color:#f92672>=</span> SLAB_NO_REAP,
+</span></span><span style=display:flex><span>    .spinlock <span style=color:#f92672>=</span> SPIN_LOCK_UNLOCKED,
+</span></span><span style=display:flex><span>    .name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;kmem_cache&#34;</span>,
+</span></span><span style=display:flex><span><span style=color:#75715e>#if DEBUG
+</span></span></span><span style=display:flex><span>    .reallen <span style=color:#f92672>=</span> <span style=color:#66d9ef>sizeof</span>(<span style=color:#66d9ef>kmem_cache_t</span>),
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>另外的高速缓存包含用作普通用途的内存区，内存范围一般包括 13 个几何分布的内存区，大小分别为 32、64、128、256、512、1024、2048、4096、8192、16384、32768、65536 和 131072 字节。 <code>malloc_size</code> 数组的元素指向 26 个高速缓存描述符，因为每个内存区都包含两个高速缓存，一个用于 ISA DMA 分配，另一个用于常规分配。</p><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* These are the default caches for kmalloc. Custom caches can have other sizes. */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> cache_sizes malloc_sizes[] <span style=color:#f92672>=</span> {
+</span></span><span style=display:flex><span><span style=color:#75715e>#define CACHE(x) { .cs_size = (x) },
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#include</span> <span style=color:#75715e>&lt;linux/kmalloc_sizes.h&gt;</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span>    { <span style=color:#ae81ff>0</span>, }
+</span></span><span style=display:flex><span><span style=color:#75715e>#undef CACHE
+</span></span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(malloc_sizes);
+</span></span></code></pre></div><p><code>include/linux/kmalloc_sizes.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>#if (PAGE_SIZE == 4096)
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>32</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>64</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#if L1_CACHE_BYTES &lt; 64
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>96</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>128</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#if L1_CACHE_BYTES &lt; 128
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>192</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>256</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>512</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>1024</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>2048</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>4096</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>8192</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>16384</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>32768</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>65536</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>131072</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifndef CONFIG_MMU
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>262144</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>524288</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>1048576</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#ifdef CONFIG_LARGE_ALLOCS
+</span></span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>2097152</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>4194304</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>8388608</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>16777216</span>)
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>CACHE</span>(<span style=color:#ae81ff>33554432</span>)
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif </span><span style=color:#75715e>/* CONFIG_LARGE_ALLOCS */</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#endif </span><span style=color:#75715e>/* CONFIG_MMU */</span><span style=color:#75715e>
+</span></span></span></code></pre></div><p>在系统初始化期间调用位于 <code>mm/slab.c</code> 的 <code>kmem_cache_init()</code> 函数来建立普通高速缓存（书上还提到了 <code>kmem_cache_sizes_init()</code> 函数，我并没找到这个函数，我查了一下较早版本的代码，目前版本该函数似乎已经被合并到了 <code>kmem_cache_init()</code> 函数中）。这个函数的代码太长了，我没有细看，先不展开了。</p><h3 id=专用高速缓存>专用高速缓存</h3><p>专用高速缓存由位于 <code>mm/slab.c</code> 的 <code>kmem_cache_create()</code> 函数创建。同样，这个函数的代码太长了，我没有细看，先不展开了。</p><h2 id=slab-分配器与分区页框分配器>slab 分配器与分区页框分配器</h2><h3 id=向页框分配器请求页框>向页框分配器请求页框</h3><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Interface to system&#39;s page allocator. No need to hold the cache-lock.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * If we requested dmaable memory, we will get it. Even if we
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * did not request dmaable memory, we might get it, but that
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * would be relatively rare and ignorable.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>kmem_getpages</span>(<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>int</span> flags, <span style=color:#66d9ef>int</span> nodeid)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>addr;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> i;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    flags <span style=color:#f92672>|=</span> cachep<span style=color:#f92672>-&gt;</span>gfpflags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>likely</span>(nodeid <span style=color:#f92672>==</span> <span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>)) {
+</span></span><span style=display:flex><span>        page <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_pages</span>(flags, cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        page <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_pages_node</span>(nodeid, flags, cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>page)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>    addr <span style=color:#f92672>=</span> <span style=color:#a6e22e>page_address</span>(page);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    i <span style=color:#f92672>=</span> (<span style=color:#ae81ff>1</span> <span style=color:#f92672>&lt;&lt;</span> cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (cachep<span style=color:#f92672>-&gt;</span>flags <span style=color:#f92672>&amp;</span> SLAB_RECLAIM_ACCOUNT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>atomic_add</span>(i, <span style=color:#f92672>&amp;</span>slab_reclaim_pages);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>add_page_state</span>(nr_slab, i);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (i<span style=color:#f92672>--</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>SetPageSlab</span>(page);
+</span></span><span style=display:flex><span>        page<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> addr;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=释放分配给-slab-的页框>释放分配给 slab 的页框</h3><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Interface to system&#39;s page release.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kmem_freepages</span>(<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>addr)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> i <span style=color:#f92672>=</span> (<span style=color:#ae81ff>1</span><span style=color:#f92672>&lt;&lt;</span>cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> page <span style=color:#f92672>*</span>page <span style=color:#f92672>=</span> <span style=color:#a6e22e>virt_to_page</span>(addr);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>const</span> <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> nr_freed <span style=color:#f92672>=</span> i;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> (i<span style=color:#f92672>--</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span><span style=color:#a6e22e>TestClearPageSlab</span>(page))
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>BUG</span>();
+</span></span><span style=display:flex><span>        page<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>sub_page_state</span>(nr_slab, nr_freed);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (current<span style=color:#f92672>-&gt;</span>reclaim_state)
+</span></span><span style=display:flex><span>        current<span style=color:#f92672>-&gt;</span>reclaim_state<span style=color:#f92672>-&gt;</span>reclaimed_slab <span style=color:#f92672>+=</span> nr_freed;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>free_pages</span>((<span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span>)addr, cachep<span style=color:#f92672>-&gt;</span>gfporder);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (cachep<span style=color:#f92672>-&gt;</span>flags <span style=color:#f92672>&amp;</span> SLAB_RECLAIM_ACCOUNT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>atomic_sub</span>(<span style=color:#ae81ff>1</span><span style=color:#f92672>&lt;&lt;</span>cachep<span style=color:#f92672>-&gt;</span>gfporder, <span style=color:#f92672>&amp;</span>slab_reclaim_pages);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h2 id=slab-分配器与高速缓存>slab 分配器与高速缓存</h2><h3 id=给高速缓存分配-slab>给高速缓存分配 slab</h3><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Grow (by 1) the number of slabs within a cache.  This is called by
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmem_cache_alloc() when there are no active objs left in a cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>cache_grow</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span> cachep, <span style=color:#66d9ef>int</span> flags, <span style=color:#66d9ef>int</span> nodeid)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> slab <span style=color:#f92672>*</span>slabp;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>objp;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>size_t</span> offset;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> local_flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> ctor_flags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Be lazy and only check for valid flags here,
+</span></span></span><span style=display:flex><span><span style=color:#75715e>      * keeping it out of the critical path in kmem_cache_alloc().
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (flags <span style=color:#f92672>&amp;</span> <span style=color:#f92672>~</span>(SLAB_DMA<span style=color:#f92672>|</span>SLAB_LEVEL_MASK<span style=color:#f92672>|</span>SLAB_NO_GROW))
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (flags <span style=color:#f92672>&amp;</span> SLAB_NO_GROW)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ctor_flags <span style=color:#f92672>=</span> SLAB_CTOR_CONSTRUCTOR;
+</span></span><span style=display:flex><span>    local_flags <span style=color:#f92672>=</span> (flags <span style=color:#f92672>&amp;</span> SLAB_LEVEL_MASK);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>(local_flags <span style=color:#f92672>&amp;</span> __GFP_WAIT))
+</span></span><span style=display:flex><span>        <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * Not allowed to sleep.  Need to tell a constructor about
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * this - it might need to know...
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        ctor_flags <span style=color:#f92672>|=</span> SLAB_CTOR_ATOMIC;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* About to mess with non-constant members - lock. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>check_irq_off</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_lock</span>(<span style=color:#f92672>&amp;</span>cachep<span style=color:#f92672>-&gt;</span>spinlock);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Get colour for the slab, and cal the next value. */</span>
+</span></span><span style=display:flex><span>    offset <span style=color:#f92672>=</span> cachep<span style=color:#f92672>-&gt;</span>colour_next;
+</span></span><span style=display:flex><span>    cachep<span style=color:#f92672>-&gt;</span>colour_next<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (cachep<span style=color:#f92672>-&gt;</span>colour_next <span style=color:#f92672>&gt;=</span> cachep<span style=color:#f92672>-&gt;</span>colour)
+</span></span><span style=display:flex><span>        cachep<span style=color:#f92672>-&gt;</span>colour_next <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>    offset <span style=color:#f92672>*=</span> cachep<span style=color:#f92672>-&gt;</span>colour_off;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_unlock</span>(<span style=color:#f92672>&amp;</span>cachep<span style=color:#f92672>-&gt;</span>spinlock);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (local_flags <span style=color:#f92672>&amp;</span> __GFP_WAIT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>local_irq_enable</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * The test for missing atomic flag is performed here, rather than
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * the more obvious place, simply to reduce the critical path length
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * in kmem_cache_alloc(). If a caller is seriously mis-behaving they
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * will eventually be caught here (where it matters).
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kmem_flagcheck</span>(cachep, flags);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Get mem for the objs. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>(objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>kmem_getpages</span>(cachep, flags, nodeid)))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> failed;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Get slab management. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>(slabp <span style=color:#f92672>=</span> <span style=color:#a6e22e>alloc_slabmgmt</span>(cachep, objp, offset, local_flags)))
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>goto</span> opps1;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>set_slab_attr</span>(cachep, slabp, objp);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>cache_init_objs</span>(cachep, slabp, ctor_flags);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (local_flags <span style=color:#f92672>&amp;</span> __GFP_WAIT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>local_irq_disable</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>check_irq_off</span>();
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_lock</span>(<span style=color:#f92672>&amp;</span>cachep<span style=color:#f92672>-&gt;</span>spinlock);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/* Make slab active. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>list_add_tail</span>(<span style=color:#f92672>&amp;</span>slabp<span style=color:#f92672>-&gt;</span>list, <span style=color:#f92672>&amp;</span>(<span style=color:#a6e22e>list3_data</span>(cachep)<span style=color:#f92672>-&gt;</span>slabs_free));
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>STATS_INC_GROWN</span>(cachep);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>list3_data</span>(cachep)<span style=color:#f92672>-&gt;</span>free_objects <span style=color:#f92672>+=</span> cachep<span style=color:#f92672>-&gt;</span>num;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>spin_unlock</span>(<span style=color:#f92672>&amp;</span>cachep<span style=color:#f92672>-&gt;</span>spinlock);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>opps1:
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kmem_freepages</span>(cachep, objp);
+</span></span><span style=display:flex><span>failed:
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (local_flags <span style=color:#f92672>&amp;</span> __GFP_WAIT)
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>local_irq_disable</span>();
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个函数我没有细看，很多细节现在也看不懂，大致流程是首先调用 <code>kmem_getpages()</code> 获得一组页框来存放一个新的 slab，其次调用 <code>alloc_slabmgmt()</code> 获得一个新的 slab 描述符，然后调用 <code>cache_init_jobs()</code> 讲构造方法应用到新 slab 包含的所有对象上，最后调用 <code>list_add_tail()</code> 来将新得到的 slab 描述符 <code>*slabp</code> 添加到高速缓存描述符 <code>*cachep</code> 的全空 slab 链表的末端并更新高速缓存中的空闲对象计数器。</p><h3 id=从高速缓存释放-slab>从高速缓存释放 slab</h3><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/* Destroy all the objs in a slab, and release the mem back to the system.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Before calling the slab must have been unlinked from the cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The cache-lock is not held/needed.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>slab_destroy</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>struct</span> slab <span style=color:#f92672>*</span>slabp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>addr <span style=color:#f92672>=</span> slabp<span style=color:#f92672>-&gt;</span>s_mem <span style=color:#f92672>-</span> slabp<span style=color:#f92672>-&gt;</span>colouroff;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>#if DEBUG
+</span></span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span><span style=color:#75715e>#else
+</span></span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (cachep<span style=color:#f92672>-&gt;</span>dtor) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> i;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> (i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>; i <span style=color:#f92672>&lt;</span> cachep<span style=color:#f92672>-&gt;</span>num; i<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>void</span><span style=color:#f92672>*</span> objp <span style=color:#f92672>=</span> slabp<span style=color:#f92672>-&gt;</span>s_mem<span style=color:#f92672>+</span>cachep<span style=color:#f92672>-&gt;</span>objsize<span style=color:#f92672>*</span>i;
+</span></span><span style=display:flex><span>            (cachep<span style=color:#f92672>-&gt;</span>dtor)(objp, cachep, <span style=color:#ae81ff>0</span>);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>unlikely</span>(cachep<span style=color:#f92672>-&gt;</span>flags <span style=color:#f92672>&amp;</span> SLAB_DESTROY_BY_RCU)) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>struct</span> slab_rcu <span style=color:#f92672>*</span>slab_rcu;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        slab_rcu <span style=color:#f92672>=</span> (<span style=color:#66d9ef>struct</span> slab_rcu <span style=color:#f92672>*</span>) slabp;
+</span></span><span style=display:flex><span>        slab_rcu<span style=color:#f92672>-&gt;</span>cachep <span style=color:#f92672>=</span> cachep;
+</span></span><span style=display:flex><span>        slab_rcu<span style=color:#f92672>-&gt;</span>addr <span style=color:#f92672>=</span> addr;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>call_rcu</span>(<span style=color:#f92672>&amp;</span>slab_rcu<span style=color:#f92672>-&gt;</span>head, kmem_rcu_free);
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>kmem_freepages</span>(cachep, addr);
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>OFF_SLAB</span>(cachep))
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>kmem_cache_free</span>(cachep<span style=color:#f92672>-&gt;</span>slabp_cache, slabp);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个函数检查高速缓存是否为它的对象提供了析构方法，如果是，就用析构方法释放 slab 中的所有对象。接着调用 <code>kmem_freepages()</code> 把页框返回给伙伴系统。 关于设置了 <code>SLAB_DESTROY_BY_RCU</code> 标志的代码，见 <a href=/posts/kernel/todo>TODO</a>，这里不展开。</p><h2 id=对齐内存中的对象>对齐内存中的对象</h2><p>对齐对象由 <code>kmem_cache_create()</code> 函数完成，这里不展开。</p><h2 id=slab-着色>slab 着色</h2><p>简单概括，slab 着色就是对 slab 使用不同的颜色（不同的偏移量），尽量使得不同的对象的映射到不同的硬件高速缓存行上。着色相关的内容最终被摒弃了（slub 分配器），所以我不打算细看了。</p><h2 id=空闲-slab-对象的本地高速缓存>空闲 slab 对象的本地高速缓存</h2><p>类似 per-CPU 高速缓存，slab 分配器也包含每个 CPU 上的本地高速缓存，只在本地数组溢出时才涉及 slab 数据结构。高速缓存描述符的 <code>array</code> 字段就是一组指向 <code>array_cache</code> 数据结构的指针。本地高速缓存的描述符并不包含本地高速缓存本身的地址，它正好位于描述符之后。</p><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * struct array_cache
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Per cpu structures
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Purpose:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * - LIFO ordering, to hand out cache-warm objects from _alloc
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * - reduce the number of linked list operations
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * - reduce spinlock operations
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The limit is stored in the per-cpu structure to reduce the data cache
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * footprint.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>struct</span> array_cache {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> avail; <span style=color:#75715e>// 指向本地高速缓存中可使用对象的指针的个数，同时作为高速缓存中第一个空槽的下标
+</span></span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> limit; <span style=color:#75715e>// 本地高速缓存中指针的最大个数
+</span></span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> batchcount; <span style=color:#75715e>// 本地高速缓存重新填充或腾空时使用的大小
+</span></span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>int</span> touched; <span style=color:#75715e>// 如果本地高速缓存最近已经被使用过，该标志为 1
+</span></span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h2 id=分配和释放内存>分配和释放内存</h2><h3 id=分配-slab-对象>分配 slab 对象</h3><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>**</span> <span style=color:#a6e22e>ac_entry</span>(<span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>ac)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> (<span style=color:#66d9ef>void</span><span style=color:#f92672>**</span>)(ac<span style=color:#f92672>+</span><span style=color:#ae81ff>1</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span><span style=color:#a6e22e>ac_data</span>(<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> cachep<span style=color:#f92672>-&gt;</span>array[<span style=color:#a6e22e>smp_processor_id</span>()];
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmem_cache_alloc - Allocate an object
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @cachep: The cache to allocate from.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @flags: See kmalloc().
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Allocate an object from this cache.  The flags are only relevant
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * if the cache has no available objects.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span> <span style=color:#a6e22e>kmem_cache_alloc</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>__cache_alloc</span>(cachep, flags);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span> <span style=color:#a6e22e>__cache_alloc</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> save_flags;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span><span style=color:#f92672>*</span> objp;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>ac;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>cache_alloc_debugcheck_before</span>(cachep, flags);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_save</span>(save_flags);
+</span></span><span style=display:flex><span>    ac <span style=color:#f92672>=</span> <span style=color:#a6e22e>ac_data</span>(cachep);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>likely</span>(ac<span style=color:#f92672>-&gt;</span>avail)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>STATS_INC_ALLOCHIT</span>(cachep);
+</span></span><span style=display:flex><span>        ac<span style=color:#f92672>-&gt;</span>touched <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>        objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>ac_entry</span>(ac)[<span style=color:#f92672>--</span>ac<span style=color:#f92672>-&gt;</span>avail];
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>STATS_INC_ALLOCMISS</span>(cachep);
+</span></span><span style=display:flex><span>        objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>cache_alloc_refill</span>(cachep, flags);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_restore</span>(save_flags);
+</span></span><span style=display:flex><span>    objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>cache_alloc_debugcheck_after</span>(cachep, flags, objp, <span style=color:#a6e22e>__builtin_return_address</span>(<span style=color:#ae81ff>0</span>));
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> objp;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>首先试图从本地高速缓存获得一个空闲对象，如果没有，则调用 <code>cache_alloc_refill()</code> 函数重新填充本地高速缓存并获得一个空闲对象。<code>cache_alloc_refill()</code> 函数比较复杂，这里不展开。</p><h3 id=释放-slab-对象>释放 slab 对象</h3><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmem_cache_free - Deallocate an object
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @cachep: The cache the allocation was from.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @objp: The previously allocated object.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Free an object which was previously allocated from this
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * cache.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kmem_cache_free</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>objp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_save</span>(flags);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__cache_free</span>(cachep, objp);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_restore</span>(flags);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>/*
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * __cache_free
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Release an obj back to its cache. If the obj has a constructed
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * state, it must be in this state _before_ it is released.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Called with disabled ints.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__cache_free</span> (<span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>cachep, <span style=color:#66d9ef>void</span><span style=color:#f92672>*</span> objp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> array_cache <span style=color:#f92672>*</span>ac <span style=color:#f92672>=</span> <span style=color:#a6e22e>ac_data</span>(cachep);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>check_irq_off</span>();
+</span></span><span style=display:flex><span>    objp <span style=color:#f92672>=</span> <span style=color:#a6e22e>cache_free_debugcheck</span>(cachep, objp, <span style=color:#a6e22e>__builtin_return_address</span>(<span style=color:#ae81ff>0</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>likely</span>(ac<span style=color:#f92672>-&gt;</span>avail <span style=color:#f92672>&lt;</span> ac<span style=color:#f92672>-&gt;</span>limit)) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>STATS_INC_FREEHIT</span>(cachep);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>ac_entry</span>(ac)[ac<span style=color:#f92672>-&gt;</span>avail<span style=color:#f92672>++</span>] <span style=color:#f92672>=</span> objp;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    } <span style=color:#66d9ef>else</span> {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>STATS_INC_FREEMISS</span>(cachep);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>cache_flusharray</span>(cachep, ac);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>ac_entry</span>(ac)[ac<span style=color:#f92672>-&gt;</span>avail<span style=color:#f92672>++</span>] <span style=color:#f92672>=</span> objp;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>首先检查本地高速缓存是否有空间给指向一个空闲对象的额外指针，如果有，该指针被加到本地高速缓存然后返回。否则，调用 <code>cache_flusharray()</code> 函数来清空本地高速缓存，再将指针加到本地高速缓存。 同样，<code>cache_alloc_refill()</code> 函数比较复杂，这里不展开。</p><h3 id=分配通用对象>分配通用对象</h3><p><code>include/linux/slab.h</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>static</span> <span style=color:#66d9ef>inline</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>kmalloc</span>(<span style=color:#66d9ef>size_t</span> size, <span style=color:#66d9ef>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>__builtin_constant_p</span>(size)) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>#define CACHE(x) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>        if (size &lt;= x) \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>            goto found; \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>        else \
+</span></span></span><span style=display:flex><span><span style=color:#75715e>            i++;
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#include</span> <span style=color:#75715e>&#34;kmalloc_sizes.h&#34;</span><span style=color:#75715e>
+</span></span></span><span style=display:flex><span><span style=color:#75715e>#undef CACHE
+</span></span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>extern</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>__you_cannot_kmalloc_that_much</span>(<span style=color:#66d9ef>void</span>);
+</span></span><span style=display:flex><span>            <span style=color:#a6e22e>__you_cannot_kmalloc_that_much</span>();
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>found:
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>kmem_cache_alloc</span>((flags <span style=color:#f92672>&amp;</span> GFP_DMA) <span style=color:#f92672>?</span>
+</span></span><span style=display:flex><span>            malloc_sizes[i].cs_dmacachep :
+</span></span><span style=display:flex><span>            malloc_sizes[i].cs_cachep, flags);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>__kmalloc</span>(size, flags);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmalloc - allocate memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @size: how many bytes of memory are required.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @flags: the type of memory to allocate.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kmalloc is the normal method of allocating memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * in the kernel.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * The @flags argument may be one of:
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * %GFP_USER - Allocate memory on behalf of user.  May sleep.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * %GFP_KERNEL - Allocate normal kernel ram.  May sleep.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * %GFP_ATOMIC - Allocation will not sleep.  Use inside interrupt handlers.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Additionally, the %GFP_DMA flag may be set to indicate the memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * must be suitable for DMA.  This can mean different things on different
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * platforms.  For example, on i386, it means that the memory must come
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * from the first 16MB.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span> <span style=color:#a6e22e>__kmalloc</span> (<span style=color:#66d9ef>size_t</span> size, <span style=color:#66d9ef>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> cache_sizes <span style=color:#f92672>*</span>csizep <span style=color:#f92672>=</span> malloc_sizes;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> (; csizep<span style=color:#f92672>-&gt;</span>cs_size; csizep<span style=color:#f92672>++</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> (size <span style=color:#f92672>&gt;</span> csizep<span style=color:#f92672>-&gt;</span>cs_size)
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>continue</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>#if DEBUG
+</span></span></span><span style=display:flex><span>        <span style=color:#75715e>/* This happens if someone tries to call
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * kmem_cache_create(), or kmalloc(), before
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         * the generic caches are initialized.
+</span></span></span><span style=display:flex><span><span style=color:#75715e>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>BUG_ON</span>(csizep<span style=color:#f92672>-&gt;</span>cs_cachep <span style=color:#f92672>==</span> NULL);
+</span></span><span style=display:flex><span><span style=color:#75715e>#endif
+</span></span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#a6e22e>__cache_alloc</span>(flags <span style=color:#f92672>&amp;</span> GFP_DMA <span style=color:#f92672>?</span>
+</span></span><span style=display:flex><span>             csizep<span style=color:#f92672>-&gt;</span>cs_dmacachep : csizep<span style=color:#f92672>-&gt;</span>cs_cachep, flags);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> NULL;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>EXPORT_SYMBOL</span>(__kmalloc);
+</span></span></code></pre></div><h3 id=释放通用对象>释放通用对象</h3><p><code>mm/slab.c</code>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * kfree - free previously allocated memory
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * @objp: pointer returned by kmalloc.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> *
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * Don&#39;t free memory not originally allocated by kmalloc()
+</span></span></span><span style=display:flex><span><span style=color:#75715e> * or you will run into trouble.
+</span></span></span><span style=display:flex><span><span style=color:#75715e> */</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>kfree</span> (<span style=color:#66d9ef>const</span> <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>objp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>kmem_cache_t</span> <span style=color:#f92672>*</span>c;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> flags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (<span style=color:#f92672>!</span>objp)
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span>;
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_save</span>(flags);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>kfree_debugcheck</span>(objp);
+</span></span><span style=display:flex><span>    c <span style=color:#f92672>=</span> <span style=color:#a6e22e>GET_PAGE_CACHE</span>(<span style=color:#a6e22e>virt_to_page</span>(objp));
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>__cache_free</span>(c, (<span style=color:#66d9ef>void</span><span style=color:#f92672>*</span>)objp);
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>local_irq_restore</span>(flags);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div></div><div class="row ps-3 pe-3"><div class="col-md-6 share-buttons"><strong>分享:</strong>
+<a class="btn icon-button bg-facebook" href="https://www.facebook.com/sharer.php?u=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fslab%2f" target=_blank><i class="fab fa-facebook"></i>
+</a><a class="btn icon-button bg-twitter" href="https://twitter.com/share?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fslab%2f&text=slab%20%e5%88%86%e9%85%8d%e5%99%a8&via=FreeFlyingSheep%20%e7%9a%84%e5%8d%9a%e5%ae%a2" target=_blank><i class="fab fa-twitter"></i>
+</a><a class="btn icon-button bg-reddit" href="https://reddit.com/submit?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fslab%2f&title=slab%20%e5%88%86%e9%85%8d%e5%99%a8" target=_blank><i class="fab fa-reddit"></i>
+</a><a class="btn icon-button bg-linkedin" href="https://www.linkedin.com/shareArticle?url=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fslab%2f&title=slab%20%e5%88%86%e9%85%8d%e5%99%a8" target=_blank><i class="fab fa-linkedin"></i>
+</a><a class="btn icon-button bg-whatsapp" href="https://api.whatsapp.com/send?text=slab%20%e5%88%86%e9%85%8d%e5%99%a8 https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fslab%2f" target=_blank><i class="fab fa-whatsapp"></i>
+</a><a class="btn icon-button" href="mailto:?subject=slab%20%e5%88%86%e9%85%8d%e5%99%a8&body=https%3a%2f%2fFreeFlyingSheep.github.io%2fposts%2fkernel%2fmemory%2fslab%2f" target=_blank><i class="fas fa-envelope-open-text"></i></a></div><div class="col-md-6 btn-improve-page"><a href=https://github.com/FreeFlyingSheep/FreeFlyingSheep.github.io/edit//content/posts/kernel/memory/slab.md title target=_blank rel=noopener><i class="fas fa-code-branch"></i>
+改善此页面</a></div></div><hr><div class="row next-prev-navigator"><div class="col-md-6 previous-article"><a href=/posts/kernel/memory/per-cpu/ title="per-CPU 高速缓存" class="btn filled-button"><div><i class="fas fa-chevron-circle-left"></i> 上一篇</div><div class=next-prev-text>per-CPU 高速缓存</div></a></div><div class="col-md-6 next-article"><a href=/posts/kernel/memory/buddy-system/ title=伙伴系统 class="btn filled-button"><div>下一篇 <i class="fas fa-chevron-circle-right"></i></div><div class=next-prev-text>伙伴系统</div></a></div></div><hr><script src=https://giscus.app/client.js data-repo=FreeFlyingSheep/FreeFlyingSheep.github.io data-repo-id=R_kgDORf53Rg data-category=Comments data-category-id=DIC_kwDORf53Rs4C325X data-mapping=url data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=light data-lang crossorigin=anonymous async></script></div></div></div><a id=scroll-to-top class=btn type=button data-bs-toggle=tooltip data-bs-placement=left title="Scroll to top"><i class="fas fa-chevron-circle-up"></i></a></section><section class=toc-section id=toc-section><div class=toc-holder><h5 class="text-center ps-3">目录</h5><hr><div class=toc><nav id=TableOfContents><ul><li><a href=#slab-分配器简介>slab 分配器简介</a><ul><li><a href=#slab-分配器算法的前提>slab 分配器算法的前提</a></li><li><a href=#slab-分配器算法的设计思想>slab 分配器算法的设计思想</a></li></ul></li><li><a href=#slab-分配器的组成>slab 分配器的组成</a></li><li><a href=#slab-分配器相关的描述符>slab 分配器相关的描述符</a><ul><li><a href=#高速缓存描述符>高速缓存描述符</a></li><li><a href=#slab-描述符>slab 描述符</a></li><li><a href=#对象描述符>对象描述符</a></li><li><a href=#各描述符之间的关系>各描述符之间的关系</a></li></ul></li><li><a href=#普通高速缓存和专用高速缓存>普通高速缓存和专用高速缓存</a><ul><li><a href=#普通高速缓存>普通高速缓存</a></li><li><a href=#专用高速缓存>专用高速缓存</a></li></ul></li><li><a href=#slab-分配器与分区页框分配器>slab 分配器与分区页框分配器</a><ul><li><a href=#向页框分配器请求页框>向页框分配器请求页框</a></li><li><a href=#释放分配给-slab-的页框>释放分配给 slab 的页框</a></li></ul></li><li><a href=#slab-分配器与高速缓存>slab 分配器与高速缓存</a><ul><li><a href=#给高速缓存分配-slab>给高速缓存分配 slab</a></li><li><a href=#从高速缓存释放-slab>从高速缓存释放 slab</a></li></ul></li><li><a href=#对齐内存中的对象>对齐内存中的对象</a></li><li><a href=#slab-着色>slab 着色</a></li><li><a href=#空闲-slab-对象的本地高速缓存>空闲 slab 对象的本地高速缓存</a></li><li><a href=#分配和释放内存>分配和释放内存</a><ul><li><a href=#分配-slab-对象>分配 slab 对象</a></li><li><a href=#释放-slab-对象>释放 slab 对象</a></li><li><a href=#分配通用对象>分配通用对象</a></li><li><a href=#释放通用对象>释放通用对象</a></li></ul></li></ul></nav></div></div></section></div><footer id=footer class="container-fluid text-center align-content-center footer pb-2"><div class="container pt-5"><div class="row text-start"><div class="col-md-4 col-sm-12"><h5>导航</h5><ul><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#about>关于</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#skills>技能</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#experiences>工作经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#education>教育经历</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#projects>参与项目</a></li><li class=nav-item><a class=smooth-scroll href=https://FreeFlyingSheep.github.io/#recent-posts>最近博文</a></li><li class=nav-item><a class=smooth-scroll href=/tags/>标签</a></li><li class=nav-item><a class=smooth-scroll href=/categories/>类别</a></li></ul></div><div class="col-md-4 col-sm-12"><h5>联系方式:</h5><ul><li><a href=mailto:chris.chenfeiyang@gmail.com target=_blank rel=noopener><span><i class="fas fa-envelope"></i></span> <span>chris.chenfeiyang@gmail.com</span></a></li><li><a href=https://github.com/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-github"></i></span> <span>FreeFlyingSheep</span></a></li><li><a href=https://www.linkedin.com/in/FreeFlyingSheep target=_blank rel=noopener><span><i class="fab fa-linkedin"></i></span> <span>FreeFlyingSheep</span></a></li></ul></div></div></div><hr><div class=container><p id=disclaimer><strong>免责声明:</strong> 本主题使用 MIT 许可证。本博客使用署名—非商业性使用 4.0 协议国际版（CC BY-NC 4.0）许可证。</p></div><hr><div class=container><div class="row text-start"><div class=col-md-4><a id=theme href=https://github.com/hugo-toha/toha target=_blank rel=noopener><img src=/images/theme-logo_hu_be7279b2506ad3f1.png alt="Toha Theme Logo">
+Toha</a></div><div class="col-md-4 text-center">© 2023 版权所有。</div><div class="col-md-4 text-end"><a id=hugo href=https://gohugo.io/ target=_blank rel=noopener>Powered by
+<img src=/images/hugo-logo.svg alt="Hugo Logo" height=18></a></div></div></div></footer><script src=/application.526b71351c36e243e2d7f272cedce3393c291461a3b0a49f877f3a3b4995291d.js integrity="sha256-UmtxNRw24kPi1/JyztzjOTwpFGGjsKSfh386O0mVKR0=" defer></script></body></html>
