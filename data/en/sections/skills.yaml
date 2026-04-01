@@ -19,8 +19,8 @@ buttons:
   filter: "tool"
 - name: Framework
   filter: "framework"
-- name: Database
-  filter: "database"
+- name: Storage
+  filter: "storage"
 - name: Platform
   filter: "platform"
 
@@ -82,6 +82,21 @@ skills:
   summary: "Proficient in developing applications and writing scripts."
   categories: ["language"]
 
+- name: Rust
+  logo: /images/sections/skills/rust.svg
+  summary: "Familiar with writing reliable systems tools and command-line applications."
+  categories: ["language"]
+
+- name: React
+  logo: /images/sections/skills/react.svg
+  summary: "Familiar with building interactive web interfaces and component-based applications."
+  categories: ["language"]
+
+- name: JavaScript/TypeScript
+  logo: /images/sections/skills/typescript.svg
+  summary: "Familiar with developing modern web applications and typed frontend logic."
+  categories: ["language"]
+
 - name: Shell
   logo: /images/sections/skills/shell.svg
   summary: "Capable of writing scripts to automate tasks."
@@ -114,12 +129,17 @@ skills:
 
 - name: FastAPI
   logo: /images/sections/skills/fastapi.svg
-  summary: "Capable of building high-performance web applications with FastAPI."
+  summary: "Capable of building high-performance web applications."
   categories: ["framework"]
 
 - name: LangChain/LangGraph
   logo: /images/sections/skills/langchain.svg
   summary: "Capable of building intelligent applications with language models."
+  categories: ["framework"]
+
+- name: React Native
+  logo: /images/sections/skills/react-native.svg
+  summary: "Familiar with building cross-platform mobile applications."
   categories: ["framework"]
 
 - name: PostgreSQL

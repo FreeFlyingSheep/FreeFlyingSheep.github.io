@@ -82,6 +82,21 @@ skills:
   summary: "能开发应用程序和编写脚本。"
   categories: ["language"]
 
+- name: Rust
+  logo: /images/sections/skills/rust.svg
+  summary: "能编写可靠的系统工具和命令行应用。"
+  categories: ["language"]
+
+- name: React
+  logo: /images/sections/skills/react.svg
+  summary: "能构建交互式 Web 界面和组件化应用。"
+  categories: ["language"]
+
+- name: JavaScript/TypeScript
+  logo: /images/sections/skills/typescript.svg
+  summary: "能开发现代 Web 应用和类型化前端逻辑。"
+  categories: ["language"]
+
 - name: Shell
   logo: /images/sections/skills/shell.svg
   summary: "能编写脚本自动化任务。"
@@ -120,6 +135,11 @@ skills:
 - name: LangChain/LangGraph
   logo: /images/sections/skills/langchain.svg
   summary: "能用语言模型构建智能应用。"
+  categories: ["framework"]
+
+- name: React Native
+  logo: /images/sections/skills/react-native.svg
+  summary: "能构建跨平台移动应用。"
   categories: ["framework"]
 
 - name: PostgreSQL
