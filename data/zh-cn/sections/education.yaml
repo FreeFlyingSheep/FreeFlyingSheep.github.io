@@ -100,6 +100,9 @@ degrees:
     name: 悉尼大学
     url: "https://www.sydney.edu.au"
     logo: /images/sections/education/usyd.svg
+  publications:
+  - title: "A. Kumbhakern, F. Chen, D. Liyanage, X. Wu, M. A. Alipour, and R. Gopinath, “Dr. DD: 1-Minimal Isolation of Failure Causes via Deferred Restarts,” in Proceedings of the 37th IEEE International Symposium on Software Reliability Engineering (ISSRE 2026), 2026. Accepted / To appear."
+    url: "https://rahul.gopinath.org/resources/issre2026/kumbhakern2026.pdf"
 
 - name: 计算机科学与技术学士
   icon: fa-university
@@ -108,3 +111,6 @@ degrees:
     name: 苏州工学院
     url: "https://www.szut.edu.cn/"
     logo: /images/sections/education/szut.png
+  publications:
+  - title: "F. Y. Chen, W. T. Xu, Z. J. Qian, W. Y. Yang, and W. Liu, “Formal Verification of the Correctness of Operating System on Assembly Layer in Isabelle/HOL,” in Artificial Intelligence and Security (ICAIS 2020), Communications in Computer and Information Science, vol. 1252, Springer, 2020, pp. 276–288."
+    url: "https://doi.org/10.1007/978-981-15-8083-3_25"
