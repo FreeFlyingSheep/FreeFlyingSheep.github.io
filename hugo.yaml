@@ -1,6 +1,6 @@
 baseURL: https://FreeFlyingSheep.github.io
 
-languageCode: zh-CN
+locale: zh-CN
 title: "FreeFlyingSheep's Blog"
 
 # Use Hugo modules to add theme
@@ -21,13 +21,13 @@ module:
 # For any more details, you can check the official documentation: https://gohugo.io/content-management/multilingual/
 languages:
   zh-cn:
-    languageCode: zh-cn
-    languageName: 简体中文
+    locale: zh-cn
+    label: 简体中文
     title: "FreeFlyingSheep 的博客"
     weight: 1
   en:
-    languageCode: en
-    languageName: English
+    locale: en
+    label: English
     title: "FreeFlyingSheep's Blog"
     weight: 2
 # default language for the content
