@@ -5,7 +5,7 @@ description: ""
 menu:
   sidebar:
     name: "Langfuse 吃满磁盘紧急修复"
-    identifier: tips-hugo
+    identifier: tips-langfuse
     parent: tips
     weight: 100
 tags: ["Langfuse", "Linux"]
