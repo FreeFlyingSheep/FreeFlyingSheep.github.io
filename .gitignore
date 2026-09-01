@@ -8,3 +8,4 @@ go.mod
 go.sum
 package-lock.json
 package.json
+core.*
