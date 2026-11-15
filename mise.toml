@@ -1,5 +1,6 @@
 [tools]
-hugo-extended = 'latest'
+hugo = 'latest'
+'aqua:sass/dart-sass' = 'latest'
 node = 'latest'
 go = 'latest'
 
