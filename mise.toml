@@ -1,6 +1,6 @@
 [tools]
 hugo = 'latest'
-'aqua:sass/dart-sass' = 'latest'
+'github:sass/dart-sass' = 'latest'
 node = 'latest'
 go = 'latest'
 
