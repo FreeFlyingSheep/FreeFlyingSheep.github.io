@@ -13,7 +13,7 @@ jobs:
           ref: main
 
       # Setup mise
-      - uses: jdx/mise-action@v5.2.7
+      - uses: jdx/mise-action@v5.2.9
 
       - name: Install dependencies
         run: |
